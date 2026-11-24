@@ -1,5 +1,6 @@
 import { Check, KeyRound, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { PasswordInput } from '../components/PasswordInput';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import {
@@ -258,15 +259,15 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
               >
                 Senha
               </label>
-              <input
+              <PasswordInput
                 id="login-password"
-                type="password"
                 required
                 autoComplete="current-password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 placeholder="Digite sua senha"
-                className="mt-1.5 h-12 w-full rounded-lg border border-neutral-300 px-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
+                wrapperClassName="mt-1.5"
+                className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
               />
             </div>
 
@@ -374,15 +375,15 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
               >
                 Senha forte
               </label>
-              <input
+              <PasswordInput
                 id="reg-password"
-                type="password"
                 required
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Crie uma senha segura"
-                className="mt-1.5 h-12 w-full rounded-lg border border-neutral-300 px-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
+                wrapperClassName="mt-1.5"
+                className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
               />
               <ul className="mt-2.5 grid grid-cols-1 gap-1.5 text-xs text-neutral-600 sm:grid-cols-2">
                 {[
@@ -443,12 +444,12 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
                   Informe o segredo <code className="font-mono">ADMIN_BOOTSTRAP_SECRET</code>{' '}
                   configurado no servidor para criar a conta inicial definida nas variáveis de ambiente.
                 </p>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   value={bootstrapSecret}
                   onChange={(e) => setBootstrapSecret(e.target.value)}
                   placeholder="Segredo de bootstrap"
+                  toggleLabel="segredo de bootstrap"
                   className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm"
                 />
                 <div className="flex gap-2">
@@ -541,14 +542,15 @@ export function ChangePasswordView({
             >
               Nova senha forte
             </label>
-            <input
+            <PasswordInput
               id="new-pwd"
-              type="password"
               required
+              autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Mín. 8 chars, maiúscula, minúscula, número e símbolo"
-              className="mt-1.5 h-12 w-full rounded-lg border border-neutral-300 px-4 text-base"
+              wrapperClassName="mt-1.5"
+              className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base"
             />
           </div>
 
@@ -559,13 +561,15 @@ export function ChangePasswordView({
             >
               Confirmar nova senha
             </label>
-            <input
+            <PasswordInput
               id="confirm-pwd"
-              type="password"
               required
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1.5 h-12 w-full rounded-lg border border-neutral-300 px-4 text-base"
+              toggleLabel="confirmação de senha"
+              wrapperClassName="mt-1.5"
+              className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base"
             />
           </div>
 

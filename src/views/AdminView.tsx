@@ -1,5 +1,6 @@
 import { Pencil, Plus, Trash2, Upload, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { PasswordInput } from '../components/PasswordInput';
 import { ProductImage } from '../components/ProductImage';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
@@ -924,13 +925,13 @@ export function AdminView() {
                   placeholder="Telefone"
                   className="h-11 rounded-lg border border-neutral-300 bg-white px-3 font-mono text-sm"
                 />
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   value={uPassword}
                   onChange={(e) => setUPassword(e.target.value)}
                   placeholder="Senha inicial forte"
-                  className="h-11 rounded-lg border border-neutral-300 bg-white px-3 text-sm sm:col-span-2"
+                  wrapperClassName="sm:col-span-2"
+                  className="h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm"
                 />
               </div>
 
