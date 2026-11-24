@@ -19,7 +19,7 @@ export function getStoreConfig() {
     storeName: getEnv('VITE_STORE_NAME') || 'AgroMarconato',
     storeDescription:
       getEnv('VITE_STORE_DESCRIPTION') ||
-      'Nutrição animal, rações selecionadas e itens agropecuários com atendimento próximo e entrega rápida em Irati e região.',
+      'A Agro Marconato é uma loja de produtos agropecuários, artigos para pets e ponto de coleta e envio do Mercado Livre localizada em Irati, PR.',
     whatsappNumber: getEnv('VITE_WHATSAPP_NUMBER') || '+55 42 98809-3611',
     paymentConfigured: Boolean(getEnv('PAYMENT_PROVIDER_SECRET_KEY')),
     supabaseConfigured: isSupabaseConfigured(),

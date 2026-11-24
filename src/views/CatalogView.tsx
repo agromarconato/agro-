@@ -11,7 +11,7 @@ import { apiFetch } from '../lib/api';
 import { buildWhatsappLink, formatCurrency } from '../lib/format';
 import type { Product, StoreConfig, UnitMode } from '../types';
 
-const DEFAULT_HERO_IMAGE = '/src/assets/images/hero_agro_store_1795537513577.jpg';
+const DEFAULT_HERO_IMAGE = '/assets/hero-agromarconato.png';
 
 interface CatalogResponse {
   products: Product[];
@@ -142,22 +142,14 @@ export function CatalogView({
               Atendimento no WhatsApp
             </a>
           </div>
-
-          <p className="mt-6 text-xs text-emerald-100/75">
-            Entrega em Irati-PR com frete fixo de{' '}
-            <span className="font-mono tabular-nums font-semibold text-white">
-              R$ 4,99
-            </span>
-            . Outras cidades sob consulta pelo WhatsApp.
-          </p>
         </div>
 
-        <div className="relative min-h-[240px] bg-emerald-900 lg:col-span-6 lg:min-h-[380px]">
+        <div className="relative flex min-h-[260px] items-center justify-center bg-[#142135] p-4 lg:col-span-6 lg:min-h-[380px]">
           <img
             src={heroImageUrl}
-            alt={`Fachada e interior da ${config.storeName}`}
+            alt={config.storeName}
             referrerPolicy="no-referrer"
-            className="h-full w-full object-cover"
+            className="max-h-[340px] w-full object-contain"
           />
         </div>
       </section>

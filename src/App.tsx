@@ -18,7 +18,7 @@ const DEFAULT_CONFIG: StoreConfig = {
     'AgroMarconato',
   storeDescription:
     (import.meta.env.VITE_STORE_DESCRIPTION as string | undefined)?.trim() ||
-    'Nutrição animal, rações selecionadas e itens agropecuários com atendimento próximo e entrega rápida em Irati e região.',
+    'A Agro Marconato é uma loja de produtos agropecuários, artigos para pets e ponto de coleta e envio do Mercado Livre localizada em Irati, PR.',
   whatsappNumber:
     (import.meta.env.VITE_WHATSAPP_NUMBER as string | undefined)?.trim() ||
     '+55 42 98809-3611',
