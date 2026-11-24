@@ -267,7 +267,7 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
                 onChange={(e) => setLoginPassword(e.target.value)}
                 placeholder="Digite sua senha"
                 wrapperClassName="mt-1.5"
-                className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
+                className="h-12 w-full rounded-lg border border-neutral-300 pl-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
               />
             </div>
 
@@ -383,7 +383,7 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Crie uma senha segura"
                 wrapperClassName="mt-1.5"
-                className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
+                className="h-12 w-full rounded-lg border border-neutral-300 pl-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
               />
               <ul className="mt-2.5 grid grid-cols-1 gap-1.5 text-xs text-neutral-600 sm:grid-cols-2">
                 {[
@@ -550,7 +550,7 @@ export function ChangePasswordView({
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Mín. 8 chars, maiúscula, minúscula, número e símbolo"
               wrapperClassName="mt-1.5"
-              className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base"
+              className="h-12 w-full rounded-lg border border-neutral-300 pl-4 text-base"
             />
           </div>
 
@@ -569,7 +569,7 @@ export function ChangePasswordView({
               onChange={(e) => setConfirmPassword(e.target.value)}
               toggleLabel="confirmação de senha"
               wrapperClassName="mt-1.5"
-              className="h-12 w-full rounded-lg border border-neutral-300 px-4 text-base"
+              className="h-12 w-full rounded-lg border border-neutral-300 pl-4 text-base"
             />
           </div>
 

@@ -24,11 +24,12 @@ export function PasswordInput({
       />
       <button
         type="button"
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => setVisible((prev) => !prev)}
         aria-label={visible ? `Ocultar ${toggleLabel}` : `Mostrar ${toggleLabel}`}
         aria-pressed={visible}
         title={visible ? `Ocultar ${toggleLabel}` : `Mostrar ${toggleLabel}`}
-        className="absolute inset-y-0 right-0 flex cursor-pointer items-center justify-center px-3.5 text-neutral-500 transition-colors hover:text-neutral-800 focus:outline-none focus-visible:text-emerald-900"
+        className="absolute inset-y-0 right-0 z-10 flex min-w-[44px] cursor-pointer items-center justify-center px-3.5 text-neutral-600 transition-colors hover:text-neutral-900 focus:outline-none focus-visible:text-emerald-900"
       >
         {visible ? (
           <EyeOff className="h-5 w-5" aria-hidden="true" />
