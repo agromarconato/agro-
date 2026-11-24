@@ -1,0 +1,54 @@
+import express, { type NextFunction, type Request, type Response } from 'express';
+import { getStoreConfig } from './supabase.ts';
+import authRoutes from './routes/auth.ts';
+import productsRoutes from './routes/products.ts';
+import cartRoutes from './routes/cart.ts';
+import cepRoutes from './routes/cep.ts';
+import ordersRoutes from './routes/orders.ts';
+import reviewsRoutes from './routes/reviews.ts';
+import adminRoutes from './routes/admin.ts';
+
+export function createApiApp() {
+  const app = express();
+
+  app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
+
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      ok: true,
+      ...getStoreConfig(),
+    });
+  });
+
+  app.use('/api/auth', authRoutes);
+  app.use('/api/products', productsRoutes);
+  app.use('/api/cart', cartRoutes);
+  app.use('/api/cep', cepRoutes);
+  app.use('/api/orders', ordersRoutes);
+  app.use('/api/reviews', reviewsRoutes);
+  app.use('/api/admin', adminRoutes);
+
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ error: 'Rota de API não encontrada.' });
+  });
+
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    if (err.message?.includes('File too large')) {
+      res.status(413).json({ error: 'Arquivo muito grande. O limite máximo é 4MB.' });
+      return;
+    }
+    res.status(500).json({ error: 'Erro interno no servidor.' });
+  });
+
+  return app;
+}
