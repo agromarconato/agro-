@@ -149,6 +149,11 @@ export function CatalogView({
             src={heroImageUrl}
             alt={config.storeName}
             referrerPolicy="no-referrer"
+            onError={(e) => {
+              if (e.currentTarget.dataset.fallbackApplied) return;
+              e.currentTarget.dataset.fallbackApplied = 'true';
+              e.currentTarget.src = DEFAULT_HERO_IMAGE;
+            }}
             className="max-h-[340px] w-full object-contain"
           />
         </div>
