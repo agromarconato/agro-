@@ -176,6 +176,12 @@ function StorefrontApp() {
     }
   };
 
+  useEffect(() => {
+    if (user?.mustChangePassword) {
+      setView('change-password');
+    }
+  }, [user?.mustChangePassword]);
+
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   return (
@@ -228,7 +234,26 @@ function StorefrontApp() {
         />
       )}
 
-      {view === 'admin' && isAdmin && <AdminView />}
+      {view === 'admin' &&
+        (isAdmin ? (
+          <AdminView />
+        ) : (
+          <main className="mx-auto max-w-xl px-4 py-12 text-center">
+            <h1 className="text-xl font-bold text-neutral-900">
+              Acesso restrito a administradores
+            </h1>
+            <p className="mt-2 text-sm text-neutral-600">
+              Sua conta não possui permissão para acessar o painel administrativo.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('catalog')}
+              className="mt-5 min-h-[42px] cursor-pointer rounded-lg bg-emerald-900 px-5 py-2 text-sm font-semibold text-white"
+            >
+              Voltar ao catálogo
+            </button>
+          </main>
+        ))}
 
       <ProductDetailModal
         productId={selectedProductId}

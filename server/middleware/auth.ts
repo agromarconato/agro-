@@ -14,24 +14,92 @@ export interface AuthUserProfile {
   isActive: boolean;
 }
 
+export const SESSION_COOKIE_NAME = 'agro_session';
+
 declare global {
   namespace Express {
     interface Request {
       authUser?: AuthUserProfile;
       accessToken?: string;
+      usedCookieAuth?: boolean;
     }
+  }
+}
+
+function parseCookieValue(cookieHeader: string | undefined, name: string): string | null {
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(';');
+  for (const part of parts) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    if (key === name) {
+      try {
+        return decodeURIComponent(part.slice(idx + 1).trim());
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function isHttpsRequest(req: Request): boolean {
+  const proto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+  return req.secure || proto.includes('https');
+}
+
+export function setSessionCookie(
+  req: Request,
+  res: Response,
+  token: string,
+  maxAgeSeconds = 3600
+): void {
+  const encoded = encodeURIComponent(token);
+  if (isHttpsRequest(req)) {
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE_NAME}=${encoded}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=None; Partitioned`
+    );
+  } else {
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE_NAME}=${encoded}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; SameSite=Lax`
+    );
+  }
+}
+
+export function clearSessionCookie(req: Request, res: Response): void {
+  if (isHttpsRequest(req)) {
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=None; Partitioned`
+    );
+  } else {
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`
+    );
   }
 }
 
 export async function resolveOptionalAuth(
   req: Request
 ): Promise<AuthUserProfile | null> {
+  let token = '';
+  let fromCookie = false;
+
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7).trim();
+  } else {
+    const cookieToken = parseCookieValue(req.headers.cookie, SESSION_COOKIE_NAME);
+    if (cookieToken) {
+      token = cookieToken;
+      fromCookie = true;
+    }
   }
 
-  const token = authHeader.slice(7).trim();
   if (!token || !isSupabaseConfigured()) {
     return null;
   }
@@ -55,6 +123,7 @@ export async function resolveOptionalAuth(
   }
 
   req.accessToken = token;
+  req.usedCookieAuth = fromCookie;
   req.authUser = {
     id: profile.id,
     fullName: profile.full_name,

@@ -1,16 +1,23 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import { apiFetch } from '../lib/api';
 import type { CartState, PendingCartIntent, UserProfile } from '../types';
 
 interface AuthContextValue {
   user: UserProfile | null;
   accessToken: string | null;
+  sessionRestoring: boolean;
   cart: CartState;
   pendingCartIntent: PendingCartIntent | null;
   setPendingCartIntent: (intent: PendingCartIntent | null) => void;
   setSession: (token: string, profile: UserProfile) => void;
   updateProfileLocal: (patch: Partial<UserProfile>) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshCart: (tokenOverride?: string | null) => Promise<void>;
   addToCart: (
     intent: PendingCartIntent,
@@ -25,9 +32,10 @@ const EMPTY_CART: CartState = { items: [], subtotal: 0, itemCount: 0 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Token mantido apenas em memória React: isola completamente sessões entre abas/usuários
+  // Token mantido em memória React + restaurado de cookie HttpOnly no servidor (nunca em localStorage/sessionStorage)
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [sessionRestoring, setSessionRestoring] = useState(true);
   const [cart, setCart] = useState<CartState>(EMPTY_CART);
   const [pendingCartIntent, setPendingCartIntent] =
     useState<PendingCartIntent | null>(null);
@@ -49,6 +57,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [accessToken]
   );
 
+  useEffect(() => {
+    let active = true;
+    apiFetch<{
+      authenticated: boolean;
+      accessToken?: string;
+      user: UserProfile | null;
+    }>('/api/auth/session')
+      .then(async (res) => {
+        if (!active) return;
+        if (res.authenticated && res.user && res.accessToken) {
+          setAccessToken(res.accessToken);
+          setUser(res.user);
+          if (!res.user.mustChangePassword) {
+            await refreshCart(res.accessToken);
+          }
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setSessionRestoring(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [refreshCart]);
+
   const setSession = useCallback((token: string, profile: UserProfile) => {
     setAccessToken(token);
     setUser(profile);
@@ -58,11 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setAccessToken(null);
     setUser(null);
     setCart(EMPTY_CART);
     setPendingCartIntent(null);
+    await apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
   }, []);
 
   const addToCart = useCallback(
@@ -116,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         accessToken,
+        sessionRestoring,
         cart,
         pendingCartIntent,
         setPendingCartIntent,

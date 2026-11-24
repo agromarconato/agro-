@@ -45,9 +45,9 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 ## 4. Variáveis de Ambiente (Local e Vercel)
 
 ### Variáveis públicas (seguras no navegador)
-- `VITE_STORE_NAME` e `STORE_NAME`: Nome exibido na loja.
+- `VITE_STORE_NAME`: Nome exibido na loja.
 - `VITE_STORE_DESCRIPTION`: Descrição curta da página inicial.
-- `VITE_WHATSAPP_NUMBER` e `WHATSAPP_NUMBER`: `+55 42 98809-3611`.
+- `VITE_WHATSAPP_NUMBER`: `+55 42 98809-3611`.
 - `VITE_HERO_IMAGE_URL`: (Opcional) URL de imagem personalizada para substituir a imagem de destaque inicial.
 
 ### Variáveis secretas (exclusivas do servidor / Vercel — sem prefixo `VITE_`)
@@ -60,7 +60,7 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 - `INITIAL_SUPERADMIN_NAME`: Seu nome completo.
 - `INITIAL_SUPERADMIN_PHONE`: Seu telefone/WhatsApp.
 - `INITIAL_SUPERADMIN_PASSWORD`: Senha forte inicial (mín. 8 caracteres com maiúscula, minúscula, número e símbolo). No primeiro login será exigida a troca.
-- `PAYMENT_PROVIDER_SECRET_KEY` e `PAYMENT_WEBHOOK_SECRET`: Deixe vazias até integrar um gateway real (Mercado Pago, Asaas ou Stripe).
+- `PAYMENT_PROVIDER_SECRET_KEY`: (Opcional) Deixe vazia até integrar um gateway real (Mercado Pago, Asaas ou Stripe).
 
 ### Como configurar na Vercel
 1. No projeto da Vercel, vá em **Settings -> Environment Variables**.
@@ -101,7 +101,7 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
    ```
 3. Acesse `https://vercel.com`, clique em **Add New... -> Project**, importe o repositório do GitHub.
 4. Em **Framework Preset**, mantenha **Vite**. Preencha todas as **Environment Variables** e clique em **Deploy**.
-5. Após publicar, abra `https://seu-projeto.vercel.app`, acesse **Entrar**, clique em **Inicializar administrador máximo do sistema**, informe apenas o `ADMIN_BOOTSTRAP_SECRET` e faça login com o e-mail e senha definidos nas variáveis de ambiente. Em seguida, altere a senha na tela obrigatória.
+5. Após publicar, abra `https://seu-projeto.vercel.app`, acesse **Entrar**, clique em **Inicializar administrador máximo do sistema**, informe apenas o `ADMIN_BOOTSTRAP_SECRET` e faça login com o **CPF** e a **senha** definidos nas variáveis de ambiente. Em seguida, altere a senha na tela obrigatória.
 6. Para atualizações futuras no código: basta rodar `git add .`, `git commit -m "descrição"` e `git push` — a Vercel gera um novo deploy automaticamente.
 
 ---

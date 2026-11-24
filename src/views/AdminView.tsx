@@ -25,6 +25,7 @@ export function AdminView() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
+  const [productSuccess, setProductSuccess] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
 
@@ -67,6 +68,7 @@ export function AdminView() {
 
   const loadProducts = async () => {
     setProductsLoading(true);
+    setProductError(null);
     try {
       const data = await apiFetch<{ products: Product[] }>(
         '/api/admin/products',
@@ -136,6 +138,7 @@ export function AdminView() {
     setPImageUrl('');
     setPImagePath('');
     setProductError(null);
+    setProductSuccess(null);
     setShowProductForm(true);
   };
 
@@ -159,6 +162,7 @@ export function AdminView() {
     setPImageUrl(prod.image_url || '');
     setPImagePath(prod.image_path || '');
     setProductError(null);
+    setProductSuccess(null);
     setShowProductForm(true);
   };
 
@@ -192,6 +196,7 @@ export function AdminView() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setProductError(null);
+    setProductSuccess(null);
     setSavingProduct(true);
 
     const toNum = (val: string) => {
@@ -219,20 +224,31 @@ export function AdminView() {
 
     try {
       if (editingProduct) {
-        await apiFetch(`/api/admin/products/${editingProduct.id}`, {
-          method: 'PATCH',
-          token: accessToken,
-          body,
-        });
+        const res = await apiFetch<{ product: Product }>(
+          `/api/admin/products/${editingProduct.id}`,
+          {
+            method: 'PATCH',
+            token: accessToken,
+            body,
+          }
+        );
+        setShowProductForm(false);
+        await loadProducts();
+        setProductSuccess(
+          `Produto "${res.product.name}" atualizado e salvo no banco de dados.`
+        );
       } else {
-        await apiFetch('/api/admin/products', {
+        const res = await apiFetch<{ product: Product }>('/api/admin/products', {
           method: 'POST',
           token: accessToken,
           body,
         });
+        setShowProductForm(false);
+        await loadProducts();
+        setProductSuccess(
+          `Produto "${res.product.name}" cadastrado e gravado no banco de dados.`
+        );
       }
-      setShowProductForm(false);
-      await loadProducts();
     } catch (err) {
       setProductError(
         err instanceof Error ? err.message : 'Erro ao salvar produto.'
@@ -244,6 +260,7 @@ export function AdminView() {
 
   const handleDeleteProduct = async (prod: Product) => {
     setProductError(null);
+    setProductSuccess(null);
     try {
       const res = await apiFetch<{ message: string }>(
         `/api/admin/products/${prod.id}`,
@@ -252,8 +269,8 @@ export function AdminView() {
           token: accessToken,
         }
       );
-      setOrderFeedback(res.message);
       await loadProducts();
+      setProductSuccess(res.message);
     } catch (err) {
       setProductError(
         err instanceof Error ? err.message : 'Erro ao excluir/desativar produto.'
@@ -392,9 +409,9 @@ export function AdminView() {
             </div>
           )}
 
-          {orderFeedback && (
+          {productSuccess && (
             <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              {orderFeedback}
+              {productSuccess}
             </div>
           )}
 
@@ -480,9 +497,24 @@ export function AdminView() {
                       />
                     </label>
                     {pImageUrl && (
-                      <span className="text-xs font-medium text-emerald-800">
-                        Imagem carregada
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={pImageUrl}
+                          alt="Pré-visualização"
+                          referrerPolicy="no-referrer"
+                          className="h-11 w-14 rounded-md border border-neutral-200 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPImageUrl('');
+                            setPImagePath('');
+                          }}
+                          className="cursor-pointer text-xs font-medium text-red-700 hover:underline"
+                        >
+                          Remover
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

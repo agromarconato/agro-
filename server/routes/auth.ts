@@ -6,11 +6,17 @@ import {
 } from '../supabase.ts';
 import {
   changePasswordSchema,
+  digitsOnly,
   loginSchema,
   registerSchema,
 } from '../utils/validation.ts';
 import { createRateLimiter } from '../middleware/rateLimit.ts';
-import { requireAuth } from '../middleware/auth.ts';
+import {
+  clearSessionCookie,
+  requireAuth,
+  resolveOptionalAuth,
+  setSessionCookie,
+} from '../middleware/auth.ts';
 
 const router = Router();
 
@@ -18,7 +24,11 @@ const authRateLimit = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   maxRequests: 20,
   keyPrefix: 'auth',
-  keyExtra: (req) => String(req.body?.email || '').toLowerCase().trim(),
+  keyExtra: (req) => {
+    const cpf = digitsOnly(String(req.body?.cpf || ''));
+    if (cpf) return cpf;
+    return String(req.body?.email || '').toLowerCase().trim();
+  },
 });
 
 router.post('/register', authRateLimit, async (req, res) => {
@@ -112,11 +122,18 @@ router.post('/register', authRateLimit, async (req, res) => {
 
     if (signInError || !signInData.session) {
       res.status(201).json({
-        message: 'Conta criada com sucesso. Faça login para continuar.',
+        message: 'Conta criada com sucesso. Faça login com seu CPF e senha para continuar.',
         requiresLogin: true,
       });
       return;
     }
+
+    setSessionCookie(
+      req,
+      res,
+      signInData.session.access_token,
+      signInData.session.expires_in || 3600
+    );
 
     res.status(201).json({
       accessToken: signInData.session.access_token,
@@ -148,41 +165,61 @@ router.post('/login', authRateLimit, async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({
-        error: parsed.error.issues[0]?.message || 'Credenciais inválidas.',
+        error: parsed.error.issues[0]?.message || 'CPF ou senha inválidos.',
       });
       return;
     }
 
-    const { email, password } = parsed.data;
-    const normalizedEmail = email.toLowerCase();
-
-    const anonClient = createSupabaseAnonClient();
-    const { data: authData, error: authError } =
-      await anonClient.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-
-    if (authError || !authData.session || !authData.user) {
-      res.status(401).json({ error: 'E-mail ou senha incorretos.' });
-      return;
-    }
-
+    const { cpf, password } = parsed.data;
     const supabaseAdmin = getSupabaseAdmin();
+
+    // Localiza o perfil pelo CPF normalizado (11 dígitos) exclusivamente no servidor
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select(
         'id, full_name, email, cpf, phone, role, must_change_password, is_active'
       )
-      .eq('id', authData.user.id)
-      .single();
+      .eq('cpf', cpf)
+      .maybeSingle();
 
-    if (profileError || !profile || !profile.is_active) {
-      res.status(403).json({
-        error: 'Conta inativa ou perfil não encontrado.',
+    if (profileError) {
+      res.status(500).json({
+        error:
+          'Erro ao consultar perfil no banco de dados. Verifique se os scripts SQL foram executados.',
       });
       return;
     }
+
+    if (!profile) {
+      res.status(401).json({ error: 'CPF ou senha incorretos.' });
+      return;
+    }
+
+    if (!profile.is_active) {
+      res.status(403).json({
+        error: 'Esta conta está desativada. Entre em contato com o suporte.',
+      });
+      return;
+    }
+
+    const anonClient = createSupabaseAnonClient();
+    const { data: authData, error: authError } =
+      await anonClient.auth.signInWithPassword({
+        email: profile.email,
+        password,
+      });
+
+    if (authError || !authData.session || !authData.user) {
+      res.status(401).json({ error: 'CPF ou senha incorretos.' });
+      return;
+    }
+
+    setSessionCookie(
+      req,
+      res,
+      authData.session.access_token,
+      authData.session.expires_in || 3600
+    );
 
     res.json({
       accessToken: authData.session.access_token,
@@ -199,6 +236,31 @@ router.post('/login', authRateLimit, async (req, res) => {
     });
   } catch {
     res.status(500).json({ error: 'Erro interno ao realizar login.' });
+  }
+});
+
+router.get('/session', async (req, res) => {
+  try {
+    const user = await resolveOptionalAuth(req);
+    if (!user || !req.accessToken) {
+      res.json({ authenticated: false, user: null });
+      return;
+    }
+    res.json({
+      authenticated: true,
+      accessToken: req.accessToken,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        cpf: user.cpf,
+        phone: user.phone,
+        role: user.role,
+        mustChangePassword: user.mustChangePassword,
+      },
+    });
+  } catch {
+    res.json({ authenticated: false, user: null });
   }
 });
 
@@ -259,7 +321,8 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/logout', (_req, res) => {
+router.post('/logout', (req, res) => {
+  clearSessionCookie(req, res);
   res.json({ message: 'Sessão encerrada.' });
 });
 

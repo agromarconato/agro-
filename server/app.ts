@@ -17,9 +17,42 @@ export function createApiApp() {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-  app.use((_req, res, next) => {
+  app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    const method = req.method.toUpperCase();
+    const isMutation =
+      method === 'POST' ||
+      method === 'PUT' ||
+      method === 'PATCH' ||
+      method === 'DELETE';
+
+    if (
+      isMutation &&
+      req.path.startsWith('/api/') &&
+      !req.headers.authorization &&
+      req.headers.cookie?.includes('agro_session=')
+    ) {
+      const requestedWith = req.headers['x-requested-with'];
+      const origin = req.headers.origin;
+      const expectedHost = req.headers['x-forwarded-host'] || req.headers.host;
+
+      let originMatches = false;
+      if (typeof origin === 'string' && typeof expectedHost === 'string') {
+        try {
+          originMatches = new URL(origin).host === expectedHost;
+        } catch {
+          originMatches = false;
+        }
+      }
+
+      if (requestedWith !== 'XMLHttpRequest' && !originMatches) {
+        res.status(403).json({ error: 'Requisição bloqueada pela proteção CSRF.' });
+        return;
+      }
+    }
+
     next();
   });
 

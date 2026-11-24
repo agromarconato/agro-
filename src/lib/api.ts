@@ -25,6 +25,7 @@ export async function apiFetch<T>(
 
   const response = await fetch(path, {
     method,
+    credentials: 'same-origin',
     headers: requestHeaders,
     body:
       body === undefined

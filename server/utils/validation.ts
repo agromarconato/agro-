@@ -81,7 +81,10 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().trim().email('E-mail inválido.'),
+  cpf: z
+    .string()
+    .transform((v) => digitsOnly(v))
+    .refine(isValidCpf, 'CPF inválido. Informe os 11 dígitos do seu CPF.'),
   password: z.string().min(1, 'Informe a senha.'),
 });
 

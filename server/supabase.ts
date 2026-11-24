@@ -16,14 +16,11 @@ export function isSupabaseConfigured(): boolean {
 
 export function getStoreConfig() {
   return {
-    storeName: getEnv('STORE_NAME') || getEnv('VITE_STORE_NAME') || 'AgroMarconato',
+    storeName: getEnv('VITE_STORE_NAME') || 'AgroMarconato',
     storeDescription:
       getEnv('VITE_STORE_DESCRIPTION') ||
       'Nutrição animal, rações selecionadas e itens agropecuários com atendimento próximo e entrega rápida em Irati e região.',
-    whatsappNumber:
-      getEnv('WHATSAPP_NUMBER') ||
-      getEnv('VITE_WHATSAPP_NUMBER') ||
-      '+55 42 98809-3611',
+    whatsappNumber: getEnv('VITE_WHATSAPP_NUMBER') || '+55 42 98809-3611',
     paymentConfigured: Boolean(getEnv('PAYMENT_PROVIDER_SECRET_KEY')),
     supabaseConfigured: isSupabaseConfigured(),
   };

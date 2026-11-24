@@ -156,10 +156,20 @@ router.post('/bootstrap', bootstrapLimiter, async (req, res) => {
     const phone = digitsOnly(getEnv('INITIAL_SUPERADMIN_PHONE'));
     const password = getEnv('INITIAL_SUPERADMIN_PASSWORD');
 
-    if (!isValidCpf(rawCpf) || !email || !fullName || phone.length < 10 || !isStrongPassword(password)) {
+    const invalidEnvFields: string[] = [];
+    if (!isValidCpf(rawCpf)) invalidEnvFields.push('INITIAL_SUPERADMIN_CPF (11 dígitos válidos)');
+    if (!email || !email.includes('@')) invalidEnvFields.push('INITIAL_SUPERADMIN_EMAIL');
+    if (fullName.length < 3) invalidEnvFields.push('INITIAL_SUPERADMIN_NAME');
+    if (phone.length < 10) invalidEnvFields.push('INITIAL_SUPERADMIN_PHONE');
+    if (!isStrongPassword(password)) {
+      invalidEnvFields.push(
+        'INITIAL_SUPERADMIN_PASSWORD (mín. 8 chars, maiúscula, minúscula, número e símbolo)'
+      );
+    }
+
+    if (invalidEnvFields.length > 0) {
       res.status(400).json({
-        error:
-          'Variáveis INITIAL_SUPERADMIN_* incompletas ou fora dos requisitos (CPF válido e senha forte).',
+        error: `Variáveis inválidas ou ausentes no servidor: ${invalidEnvFields.join(', ')}.`,
       });
       return;
     }
@@ -227,7 +237,7 @@ router.post('/bootstrap', bootstrapLimiter, async (req, res) => {
 
     res.status(201).json({
       message:
-        'Administrador máximo inicial criado com sucesso. Faça login com o e-mail e senha configurados no ambiente e altere a senha no primeiro acesso.',
+        'Administrador máximo inicial criado com sucesso. Faça login com o CPF e a senha configurados no ambiente e altere a senha no primeiro acesso.',
     });
   } catch {
     res.status(500).json({ error: 'Erro interno durante inicialização segura.' });

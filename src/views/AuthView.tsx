@@ -34,8 +34,8 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  // Login
-  const [loginEmail, setLoginEmail] = useState('');
+  // Login (CPF e senha)
+  const [loginCpf, setLoginCpf] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Cadastro
@@ -74,11 +74,18 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
     e.preventDefault();
     setError(null);
     setInfoMessage(null);
+
+    const normalizedCpf = loginCpf.replace(/\D/g, '');
+    if (!isValidCpfClient(normalizedCpf)) {
+      setError('CPF inválido. Informe os 11 dígitos do seu CPF.');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await apiFetch<AuthResponse>('/api/auth/login', {
         method: 'POST',
-        body: { email: loginEmail.trim(), password: loginPassword },
+        body: { cpf: normalizedCpf, password: loginPassword },
       });
       await onAuthComplete(res.user, res.accessToken);
     } catch (err) {
@@ -116,7 +123,7 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
       if (res.requiresLogin) {
         setTab('login');
         setInfoMessage(
-          res.message || 'Cadastro criado. Entre com seu e-mail e senha.'
+          res.message || 'Cadastro criado. Entre com seu CPF e senha.'
         );
         return;
       }
@@ -220,26 +227,27 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
                 Acessar sua conta
               </h1>
               <p className="mt-1 text-sm text-neutral-600">
-                Use seu e-mail e senha para acompanhar pedidos ou administrar a loja.
+                Use seu CPF e senha para acompanhar pedidos ou administrar a loja.
               </p>
             </div>
 
             <div>
               <label
-                htmlFor="login-email"
+                htmlFor="login-cpf"
                 className="block text-sm font-medium text-neutral-800"
               >
-                E-mail
+                CPF
               </label>
               <input
-                id="login-email"
-                type="email"
+                id="login-cpf"
+                type="text"
                 required
-                autoComplete="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="seuemail@exemplo.com"
-                className="mt-1.5 h-12 w-full rounded-lg border border-neutral-300 px-4 text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
+                inputMode="numeric"
+                autoComplete="username"
+                value={loginCpf}
+                onChange={(e) => setLoginCpf(formatCpfInput(e.target.value))}
+                placeholder="000.000.000-00"
+                className="mt-1.5 h-12 w-full rounded-lg border border-neutral-300 px-4 font-mono tabular-nums text-base text-neutral-900 focus:border-emerald-800 focus:outline-none"
               />
             </div>
 
