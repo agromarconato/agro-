@@ -1,23 +1,15 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import multer from 'multer';
-import {
-  getEnv,
-  getSupabaseAdmin,
-  isSupabaseConfigured,
-} from '../supabase.ts';
+import { getSupabaseAdmin } from '../supabase.ts';
 import {
   requireAdmin,
   requireAuth,
   requirePasswordChanged,
   requireSuperAdmin,
 } from '../middleware/auth.ts';
-import { createRateLimiter } from '../middleware/rateLimit.ts';
 import {
   createAdminUserSchema,
-  digitsOnly,
-  isStrongPassword,
-  isValidCpf,
   orderStatusUpdateSchema,
   productUpsertSchema,
 } from '../utils/validation.ts';
@@ -30,18 +22,6 @@ const upload = multer({
     fileSize: 4 * 1024 * 1024, // 4 MB
   },
 });
-
-const bootstrapLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  maxRequests: 5,
-  keyPrefix: 'admin-bootstrap',
-});
-
-function timingSafeCompareSecret(provided: string, expected: string): boolean {
-  const hashA = crypto.createHash('sha256').update(provided).digest();
-  const hashB = crypto.createHash('sha256').update(expected).digest();
-  return crypto.timingSafeEqual(hashA, hashB);
-}
 
 function detectImageExtension(buffer: Buffer): {
   ext: string;
@@ -70,179 +50,6 @@ function detectImageExtension(buffer: Buffer): {
   }
   return null;
 }
-
-router.get('/bootstrap-status', async (_req, res) => {
-  try {
-    if (!isSupabaseConfigured()) {
-      res.json({ initialized: false, supabaseConfigured: false, envReady: false });
-      return;
-    }
-
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from('system_bootstrap')
-      .select('id')
-      .eq('id', 1)
-      .maybeSingle();
-
-    if (error) {
-      res.json({ initialized: false, supabaseConfigured: true, envReady: false });
-      return;
-    }
-
-    const envReady = Boolean(
-      getEnv('ADMIN_BOOTSTRAP_SECRET') &&
-        getEnv('INITIAL_SUPERADMIN_CPF') &&
-        getEnv('INITIAL_SUPERADMIN_EMAIL') &&
-        getEnv('INITIAL_SUPERADMIN_NAME') &&
-        getEnv('INITIAL_SUPERADMIN_PHONE') &&
-        getEnv('INITIAL_SUPERADMIN_PASSWORD')
-    );
-
-    res.json({
-      initialized: Boolean(data),
-      supabaseConfigured: true,
-      envReady,
-    });
-  } catch {
-    res.status(500).json({ error: 'Erro ao verificar estado de inicialização.' });
-  }
-});
-
-router.post('/bootstrap', bootstrapLimiter, async (req, res) => {
-  try {
-    if (!isSupabaseConfigured()) {
-      res.status(503).json({
-        error: 'Configure as variáveis do Supabase antes de inicializar o administrador.',
-      });
-      return;
-    }
-
-    const expectedSecret = getEnv('ADMIN_BOOTSTRAP_SECRET');
-    if (!expectedSecret || expectedSecret.length < 16) {
-      res.status(503).json({
-        error:
-          'Variável ADMIN_BOOTSTRAP_SECRET ausente ou muito curta no ambiente do servidor.',
-      });
-      return;
-    }
-
-    const providedSecret = String(
-      req.headers['x-bootstrap-secret'] || req.body?.secret || ''
-    ).trim();
-
-    if (!providedSecret || !timingSafeCompareSecret(providedSecret, expectedSecret)) {
-      res.status(403).json({ error: 'Segredo de inicialização inválido.' });
-      return;
-    }
-
-    const supabase = getSupabaseAdmin();
-    const { data: alreadyInit } = await supabase
-      .from('system_bootstrap')
-      .select('id')
-      .eq('id', 1)
-      .maybeSingle();
-
-    if (alreadyInit) {
-      res.status(409).json({
-        error: 'O administrador máximo inicial já foi configurado. Esta rota está bloqueada.',
-      });
-      return;
-    }
-
-    const rawCpf = digitsOnly(getEnv('INITIAL_SUPERADMIN_CPF'));
-    const email = getEnv('INITIAL_SUPERADMIN_EMAIL').toLowerCase();
-    const fullName = getEnv('INITIAL_SUPERADMIN_NAME');
-    const phone = digitsOnly(getEnv('INITIAL_SUPERADMIN_PHONE'));
-    const password = getEnv('INITIAL_SUPERADMIN_PASSWORD');
-
-    const invalidEnvFields: string[] = [];
-    if (!isValidCpf(rawCpf)) invalidEnvFields.push('INITIAL_SUPERADMIN_CPF (11 dígitos válidos)');
-    if (!email || !email.includes('@')) invalidEnvFields.push('INITIAL_SUPERADMIN_EMAIL');
-    if (fullName.length < 3) invalidEnvFields.push('INITIAL_SUPERADMIN_NAME');
-    if (phone.length < 10) invalidEnvFields.push('INITIAL_SUPERADMIN_PHONE');
-    if (!isStrongPassword(password)) {
-      invalidEnvFields.push(
-        'INITIAL_SUPERADMIN_PASSWORD (mín. 8 chars, maiúscula, minúscula, número e símbolo)'
-      );
-    }
-
-    if (invalidEnvFields.length > 0) {
-      res.status(400).json({
-        error: `Variáveis inválidas ou ausentes no servidor: ${invalidEnvFields.join(', ')}.`,
-      });
-      return;
-    }
-
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .or(`email.eq.${email},cpf.eq.${rawCpf}`)
-      .maybeSingle();
-
-    if (existingProfile) {
-      res.status(409).json({
-        error: 'Já existe um usuário com o CPF ou e-mail configurado para o administrador inicial.',
-      });
-      return;
-    }
-
-    const { data: createdAuth, error: authErr } =
-      await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name: fullName },
-      });
-
-    if (authErr || !createdAuth.user) {
-      res.status(400).json({
-        error: 'Não foi possível criar a conta de autenticação do administrador inicial.',
-      });
-      return;
-    }
-
-    const userId = createdAuth.user.id;
-
-    const { error: profileErr } = await supabase.from('profiles').insert({
-      id: userId,
-      full_name: fullName,
-      email,
-      cpf: rawCpf,
-      phone,
-      role: 'super_admin',
-      must_change_password: true,
-      is_active: true,
-    });
-
-    if (profileErr) {
-      await supabase.auth.admin.deleteUser(userId).catch(() => undefined);
-      res.status(500).json({ error: 'Falha ao gravar perfil do administrador máximo.' });
-      return;
-    }
-
-    const { error: lockErr } = await supabase.from('system_bootstrap').insert({
-      id: 1,
-      super_admin_id: userId,
-    });
-
-    if (lockErr) {
-      await supabase.from('profiles').delete().eq('id', userId);
-      await supabase.auth.admin.deleteUser(userId).catch(() => undefined);
-      res.status(409).json({ error: 'Inicialização já executada concorrentemente.' });
-      return;
-    }
-
-    await supabase.from('carts').insert({ user_id: userId });
-
-    res.status(201).json({
-      message:
-        'Administrador máximo inicial criado com sucesso. Faça login com o CPF e a senha configurados no ambiente e altere a senha no primeiro acesso.',
-    });
-  } catch {
-    res.status(500).json({ error: 'Erro interno durante inicialização segura.' });
-  }
-});
 
 // Todas as rotas abaixo exigem autenticação, senha inicial alterada e papel admin ou super_admin
 router.use(requireAuth, requirePasswordChanged, requireAdmin);

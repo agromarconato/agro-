@@ -1,4 +1,4 @@
-import { Check, KeyRound, ShieldCheck } from 'lucide-react';
+import { Check, KeyRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PasswordInput } from '../components/PasswordInput';
 import { useAuth } from '../context/AuthContext';
@@ -22,12 +22,6 @@ interface AuthResponse {
   message?: string;
 }
 
-interface BootstrapStatusResponse {
-  initialized: boolean;
-  supabaseConfigured: boolean;
-  envReady: boolean;
-}
-
 export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
   const { pendingCartIntent } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>(initialTab);
@@ -46,22 +40,9 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
 
-  // Bootstrap admin inicial (mostrado somente quando não inicializado)
-  const [bootstrapStatus, setBootstrapStatus] =
-    useState<BootstrapStatusResponse | null>(null);
-  const [showBootstrapForm, setShowBootstrapForm] = useState(false);
-  const [bootstrapSecret, setBootstrapSecret] = useState('');
-  const [bootstrapLoading, setBootstrapLoading] = useState(false);
-
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
-
-  useEffect(() => {
-    apiFetch<BootstrapStatusResponse>('/api/admin/bootstrap-status')
-      .then(setBootstrapStatus)
-      .catch(() => undefined);
-  }, []);
 
   const passwordChecks = {
     length: password.length >= 8,
@@ -136,34 +117,6 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
       );
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleBootstrap = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setInfoMessage(null);
-    setBootstrapLoading(true);
-    try {
-      const res = await apiFetch<{ message: string }>('/api/admin/bootstrap', {
-        method: 'POST',
-        headers: { 'x-bootstrap-secret': bootstrapSecret.trim() },
-      });
-      setBootstrapSecret('');
-      setShowBootstrapForm(false);
-      setBootstrapStatus((prev) =>
-        prev ? { ...prev, initialized: true } : null
-      );
-      setInfoMessage(res.message);
-      setTab('login');
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Erro ao inicializar administrador máximo.'
-      );
-    } finally {
-      setBootstrapLoading(false);
     }
   };
 
@@ -418,59 +371,6 @@ export function AuthView({ initialTab, onAuthComplete }: AuthViewProps) {
               {loading ? 'Criando conta...' : 'Criar conta'}
             </button>
           </form>
-        )}
-
-        {/* Inicialização controlada do Administrador Máximo (apenas antes do primeiro bootstrap) */}
-        {bootstrapStatus?.supabaseConfigured && !bootstrapStatus.initialized && (
-          <div className="mt-8 border-t border-neutral-200 pt-5">
-            {!showBootstrapForm ? (
-              <button
-                type="button"
-                onClick={() => setShowBootstrapForm(true)}
-                className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-neutral-600 hover:text-emerald-900"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Inicializar administrador máximo do sistema
-              </button>
-            ) : (
-              <form
-                onSubmit={handleBootstrap}
-                className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4"
-              >
-                <p className="text-xs font-semibold text-neutral-800">
-                  Inicialização única do Administrador Máximo
-                </p>
-                <p className="text-xs text-neutral-600">
-                  Informe o segredo <code className="font-mono">ADMIN_BOOTSTRAP_SECRET</code>{' '}
-                  configurado no servidor para criar a conta inicial definida nas variáveis de ambiente.
-                </p>
-                <PasswordInput
-                  required
-                  value={bootstrapSecret}
-                  onChange={(e) => setBootstrapSecret(e.target.value)}
-                  placeholder="Segredo de bootstrap"
-                  toggleLabel="segredo de bootstrap"
-                  className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={bootstrapLoading}
-                    className="min-h-[38px] cursor-pointer rounded-lg bg-emerald-900 px-4 text-xs font-semibold text-white"
-                  >
-                    {bootstrapLoading ? 'Inicializando...' : 'Confirmar bootstrap'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowBootstrapForm(false)}
-                    className="min-h-[38px] cursor-pointer rounded-lg border border-neutral-300 bg-white px-4 text-xs font-medium text-neutral-700"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
         )}
       </div>
     </main>

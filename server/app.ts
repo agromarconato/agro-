@@ -7,9 +7,11 @@ import cepRoutes from './routes/cep.ts';
 import ordersRoutes from './routes/orders.ts';
 import reviewsRoutes from './routes/reviews.ts';
 import adminRoutes from './routes/admin.ts';
+import { ensureInitialSuperAdminProvisioned } from './services/superAdminProvisioning.ts';
 
 export function createApiApp() {
   const app = express();
+  void ensureInitialSuperAdminProvisioned().catch(() => undefined);
 
   app.set('trust proxy', 1);
   app.disable('x-powered-by');

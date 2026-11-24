@@ -54,12 +54,11 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 - `SUPABASE_URL`: URL do projeto Supabase.
 - `SUPABASE_ANON_KEY`: Chave `anon` do Supabase.
 - `SUPABASE_SERVICE_ROLE_KEY`: Chave `service_role` (secreta!).
-- `ADMIN_BOOTSTRAP_SECRET`: Senha/token forte (mín. 16 caracteres) usado uma única vez para liberar a criação do administrador máximo inicial.
 - `INITIAL_SUPERADMIN_CPF`: Seu CPF (11 dígitos válidos, sem colocar no código).
-- `INITIAL_SUPERADMIN_EMAIL`: Seu e-mail de acesso inicial.
+- `INITIAL_SUPERADMIN_EMAIL`: Seu e-mail de acesso do administrador máximo.
 - `INITIAL_SUPERADMIN_NAME`: Seu nome completo.
 - `INITIAL_SUPERADMIN_PHONE`: Seu telefone/WhatsApp.
-- `INITIAL_SUPERADMIN_PASSWORD`: Senha forte inicial (mín. 8 caracteres com maiúscula, minúscula, número e símbolo). No primeiro login será exigida a troca.
+- `INITIAL_SUPERADMIN_PASSWORD`: Senha forte do administrador máximo definida nas variáveis de ambiente.
 - `PAYMENT_PROVIDER_SECRET_KEY`: (Opcional) Deixe vazia até integrar um gateway real (Mercado Pago, Asaas ou Stripe).
 
 ### Como configurar na Vercel
@@ -101,7 +100,7 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
    ```
 3. Acesse `https://vercel.com`, clique em **Add New... -> Project**, importe o repositório do GitHub.
 4. Em **Framework Preset**, mantenha **Vite**. Preencha todas as **Environment Variables** e clique em **Deploy**.
-5. Após publicar, abra `https://seu-projeto.vercel.app`, acesse **Entrar**, clique em **Inicializar administrador máximo do sistema**, informe apenas o `ADMIN_BOOTSTRAP_SECRET` e faça login com o **CPF** e a **senha** definidos nas variáveis de ambiente. Em seguida, altere a senha na tela obrigatória.
+5. Após publicar, abra `https://seu-projeto.vercel.app`, acesse **Entrar** e faça login normalmente com o **CPF** (`INITIAL_SUPERADMIN_CPF`) e a **senha** (`INITIAL_SUPERADMIN_PASSWORD`) definidos nas variáveis de ambiente — o servidor provisiona automaticamente a conta `super_admin` e direciona para o painel administrativo.
 6. Para atualizações futuras no código: basta rodar `git add .`, `git commit -m "descrição"` e `git push` — a Vercel gera um novo deploy automaticamente.
 
 ---

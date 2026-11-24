@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import {
   createSupabaseAnonClient,
+  getEnv,
   getSupabaseAdmin,
   isSupabaseConfigured,
 } from '../supabase.ts';
+import { ensureInitialSuperAdminProvisioned } from '../services/superAdminProvisioning.ts';
 import {
   changePasswordSchema,
   digitsOnly,
@@ -50,6 +52,7 @@ router.post('/register', authRateLimit, async (req, res) => {
 
     const { fullName, email, cpf, phone, password } = parsed.data;
     const normalizedEmail = email.toLowerCase();
+    await ensureInitialSuperAdminProvisioned();
     const supabaseAdmin = getSupabaseAdmin();
 
     // Verifica duplicidade de CPF ou e-mail antes de criar usuário no Auth
@@ -171,6 +174,7 @@ router.post('/login', authRateLimit, async (req, res) => {
     }
 
     const { cpf, password } = parsed.data;
+    const provisionResult = await ensureInitialSuperAdminProvisioned();
     const supabaseAdmin = getSupabaseAdmin();
 
     // Localiza o perfil pelo CPF normalizado (11 dígitos) exclusivamente no servidor
@@ -191,6 +195,16 @@ router.post('/login', authRateLimit, async (req, res) => {
     }
 
     if (!profile) {
+      const configuredAdminCpf = digitsOnly(getEnv('INITIAL_SUPERADMIN_CPF'));
+      if (
+        configuredAdminCpf &&
+        cpf === configuredAdminCpf &&
+        (provisionResult.status === 'invalid_env' || provisionResult.status === 'error') &&
+        provisionResult.message
+      ) {
+        res.status(503).json({ error: provisionResult.message });
+        return;
+      }
       res.status(401).json({ error: 'CPF ou senha incorretos.' });
       return;
     }
