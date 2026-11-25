@@ -37,6 +37,7 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 3. `supabase/sql/003_functions_and_atomic_rpc.sql`
 4. `supabase/sql/004_rls_policies.sql`
 5. `supabase/sql/005_storage_setup.sql`
+6. `supabase/sql/006_payment_methods_and_webhook.sql` (para bancos já criados anteriormente, adiciona `credit_card`, `debit_card`, `cash_on_delivery` e suporte a detalhes de entrega/parcelamento/webhook sem apagar nenhum registro)
 
 > O script `005_storage_setup.sql` cria automaticamente o bucket público `product-images` com limite de 4 MB e permissão de envio restrita a administradores.
 
@@ -49,6 +50,7 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 - `VITE_STORE_DESCRIPTION`: Descrição curta da página inicial.
 - `VITE_WHATSAPP_NUMBER`: `+55 42 98809-3611`.
 - `VITE_HERO_IMAGE_URL`: (Opcional) URL de imagem personalizada para substituir a imagem de destaque inicial.
+- `VITE_MP_PUBLIC_KEY`: Public Key da conta Mercado Pago (usada apenas pelo SDK Brick oficial no navegador para tokenizar cartões com segurança).
 
 ### Variáveis secretas (exclusivas do servidor / Vercel — sem prefixo `VITE_`)
 - `SUPABASE_URL`: URL do projeto Supabase.
@@ -59,7 +61,8 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 - `INITIAL_SUPERADMIN_NAME`: Seu nome completo.
 - `INITIAL_SUPERADMIN_PHONE`: Seu telefone/WhatsApp.
 - `INITIAL_SUPERADMIN_PASSWORD`: Senha forte do administrador máximo definida nas variáveis de ambiente.
-- `PAYMENT_PROVIDER_SECRET_KEY`: (Opcional) Deixe vazia até integrar um gateway real (Mercado Pago, Asaas ou Stripe).
+- `MP_ACCESS_TOKEN`: Access Token privado do Mercado Pago (nunca use prefixo `VITE_`).
+- `MP_WEBHOOK_SECRET`: Assinatura secreta configurada em Webhooks no painel do Mercado Pago para validar `x-signature` em `POST /api/webhooks/mercadopago`.
 
 ### Como configurar na Vercel
 1. No projeto da Vercel, vá em **Settings -> Environment Variables**.

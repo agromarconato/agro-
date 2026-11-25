@@ -7,6 +7,8 @@ import cepRoutes from './routes/cep.ts';
 import ordersRoutes from './routes/orders.ts';
 import reviewsRoutes from './routes/reviews.ts';
 import adminRoutes from './routes/admin.ts';
+import paymentsRoutes from './routes/payments.ts';
+import webhooksRoutes from './routes/webhooks.ts';
 import { ensureInitialSuperAdminProvisioned } from './services/superAdminProvisioning.ts';
 
 export function createApiApp() {
@@ -70,6 +72,8 @@ export function createApiApp() {
   app.use('/api/cart', cartRoutes);
   app.use('/api/cep', cepRoutes);
   app.use('/api/orders', ordersRoutes);
+  app.use('/api/payments', paymentsRoutes);
+  app.use('/api/webhooks', webhooksRoutes);
   app.use('/api/reviews', reviewsRoutes);
   app.use('/api/admin', adminRoutes);
 

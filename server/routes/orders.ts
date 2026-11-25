@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
     const { data: orders, error } = await supabase
       .from('orders')
       .select(
-        'id, order_number, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, notes, created_at, updated_at, order_items(id, product_id, product_name, product_image_url, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, details)'
+        'id, order_number, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, notes, created_at, updated_at, order_items(id, product_id, product_name, product_image_url, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, provider_reference, details)'
       )
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -77,7 +77,7 @@ router.get('/:id', async (req, res) => {
     const { data: order, error } = await supabase
       .from('orders')
       .select(
-        'id, order_number, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, notes, created_at, updated_at, order_items(id, product_id, product_name, product_image_url, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, details)'
+        'id, order_number, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, notes, created_at, updated_at, order_items(id, product_id, product_name, product_image_url, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, provider_reference, details)'
       )
       .eq('id', orderId)
       .eq('user_id', userId)
@@ -105,9 +105,35 @@ router.post('/', orderCreateLimiter, async (req, res) => {
     }
 
     const userId = req.authUser!.id;
-    const { idempotencyKey, paymentMethod, shipping, notes, saveAddress } =
-      parsed.data;
+    const {
+      idempotencyKey,
+      paymentMethod,
+      paymentChannel: rawChannel,
+      changeFor,
+      shipping,
+      notes,
+      saveAddress,
+    } = parsed.data;
     const config = getStoreConfig();
+
+    const paymentChannel: 'online' | 'on_delivery' =
+      paymentMethod === 'cash_on_delivery'
+        ? 'on_delivery'
+        : rawChannel || (paymentMethod === 'pix' ? 'online' : 'on_delivery');
+
+    const isOnlineCard =
+      paymentChannel === 'online' &&
+      (paymentMethod === 'credit_card' ||
+        paymentMethod === 'debit_card' ||
+        paymentMethod === 'card');
+
+    if (isOnlineCard && !config.onlineCardConfigured) {
+      res.status(400).json({
+        error:
+          'Pagamento com cartão online indisponível: o gateway Mercado Pago ainda não está configurado no servidor. Escolha "Pagar na entrega" ou Pix.',
+      });
+      return;
+    }
 
     if (!isIratiParana(shipping.city, shipping.state)) {
       const whatsappUrl = buildWhatsappUrl(
@@ -123,9 +149,70 @@ router.post('/', orderCreateLimiter, async (req, res) => {
       return;
     }
 
+    let paymentLabel = 'Pix';
+    if (paymentMethod === 'cash_on_delivery') {
+      paymentLabel = 'Pagar na entrega — Dinheiro';
+    } else if (paymentMethod === 'credit_card') {
+      paymentLabel =
+        paymentChannel === 'online'
+          ? 'Cartão de crédito (Online)'
+          : 'Pagar na entrega — Cartão de crédito';
+    } else if (paymentMethod === 'debit_card') {
+      paymentLabel =
+        paymentChannel === 'online'
+          ? 'Cartão de débito (Online)'
+          : 'Pagar na entrega — Cartão de débito';
+    } else if (paymentMethod === 'card') {
+      paymentLabel =
+        paymentChannel === 'online'
+          ? 'Cartão (Online)'
+          : 'Pagar na entrega — Cartão';
+    }
+
+    const cleanChangeFor =
+      paymentMethod === 'cash_on_delivery' && changeFor?.trim()
+        ? changeFor.trim()
+        : null;
+
+    const paymentNote =
+      paymentChannel === 'on_delivery'
+        ? cleanChangeFor
+          ? `Pagamento na entrega (${paymentLabel}). Troco para: ${cleanChangeFor}.`
+          : `Pagamento na entrega (${paymentLabel}).`
+        : isOnlineCard
+          ? 'Aguardando conclusão segura do cartão no Mercado Pago e confirmação por webhook.'
+          : config.paymentConfigured
+            ? 'Aguardando confirmação do pagamento Pix.'
+            : 'Provedor online ainda não configurado; combine a confirmação do Pix pelo WhatsApp da loja.';
+
+    const paymentDetails = {
+      selectedMethod: paymentMethod,
+      channel: paymentChannel,
+      label: paymentLabel,
+      changeFor: cleanChangeFor,
+      note: paymentNote,
+    };
+
+    const orderStatus =
+      paymentChannel === 'on_delivery' ? 'awaiting_confirmation' : 'pending_payment';
+    const paymentStatus =
+      paymentChannel === 'on_delivery'
+        ? 'pending'
+        : isOnlineCard
+          ? 'pending'
+          : config.paymentConfigured
+            ? 'pending'
+            : 'pending_configuration';
+    const provider =
+      paymentChannel === 'on_delivery'
+        ? 'pay_on_delivery'
+        : isOnlineCard || config.paymentConfigured
+          ? 'mercadopago'
+          : 'unconfigured';
+
     const supabase = getSupabaseAdmin();
 
-    const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    let { data: rpcResult, error: rpcError } = await supabase.rpc(
       'create_order_atomic',
       {
         p_user_id: userId,
@@ -140,8 +227,40 @@ router.post('/', orderCreateLimiter, async (req, res) => {
         p_shipping_state: shipping.state,
         p_notes: notes || null,
         p_payment_configured: config.paymentConfigured,
+        p_payment_details: paymentDetails,
+        p_order_status: orderStatus,
+        p_payment_status: paymentStatus,
+        p_provider: provider,
       }
     );
+
+    // Compatibilidade caso o banco ainda esteja antes do script 006_payment_methods_and_webhook.sql
+    let usedLegacyFallback = false;
+    if (
+      rpcError &&
+      (rpcError.message?.includes('create_order_atomic') ||
+        rpcError.message?.includes('invalid input value for enum'))
+    ) {
+      usedLegacyFallback = true;
+      const legacyMethod = paymentMethod === 'pix' ? 'pix' : 'card';
+      const fallback = await supabase.rpc('create_order_atomic', {
+        p_user_id: userId,
+        p_idempotency_key: idempotencyKey,
+        p_payment_method: legacyMethod,
+        p_shipping_cep: shipping.cep,
+        p_shipping_street: shipping.street,
+        p_shipping_number: shipping.number,
+        p_shipping_complement: shipping.complement || null,
+        p_shipping_neighborhood: shipping.neighborhood,
+        p_shipping_city: shipping.city,
+        p_shipping_state: shipping.state,
+        p_notes: notes || null,
+        p_payment_configured:
+          paymentChannel === 'on_delivery' || config.paymentConfigured,
+      });
+      rpcResult = fallback.data;
+      rpcError = fallback.error;
+    }
 
     if (rpcError) {
       const msg = rpcError.message || '';
@@ -179,6 +298,24 @@ router.post('/', orderCreateLimiter, async (req, res) => {
 
     const created = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
 
+    if (usedLegacyFallback && created && !created.already_existed) {
+      await supabase
+        .from('payments')
+        .update({
+          status: paymentStatus,
+          provider,
+          details: paymentDetails,
+        })
+        .eq('order_id', created.order_id);
+
+      if (orderStatus === 'awaiting_confirmation') {
+        await supabase
+          .from('orders')
+          .update({ status: 'awaiting_confirmation' })
+          .eq('id', created.order_id);
+      }
+    }
+
     if (saveAddress && created && !created.already_existed) {
       await supabase.from('addresses').insert({
         user_id: userId,
@@ -196,9 +333,9 @@ router.post('/', orderCreateLimiter, async (req, res) => {
     res.status(created?.already_existed ? 200 : 201).json({
       order: created,
       paymentConfigured: config.paymentConfigured,
-      paymentNotice: config.paymentConfigured
-        ? 'Pedido criado. Siga as instruções do provedor de pagamento.'
-        : 'Provedor de pagamento online ainda não configurado. Seu pedido foi registrado e você pode combinar a confirmação pelo WhatsApp da loja.',
+      paymentSummary: paymentLabel,
+      paymentChannel,
+      paymentNotice: paymentNote,
     });
   } catch {
     res.status(500).json({ error: 'Erro interno ao finalizar pedido.' });

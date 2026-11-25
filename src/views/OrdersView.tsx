@@ -1,14 +1,13 @@
-import { MessageCircle, Star } from 'lucide-react';
+import { MessageCircle, RefreshCw, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import {
   ORDER_STATUS_LABELS,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_LABELS,
   buildWhatsappLink,
   formatCurrency,
   formatDateTime,
+  formatPaymentSummary,
 } from '../lib/format';
 import type { OrderRecord, StoreConfig } from '../types';
 
@@ -93,13 +92,24 @@ export function OrdersView({ config, onGoToCatalog }: OrdersViewProps) {
             Acompanhe o andamento das suas compras e avalie os itens após a entrega.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onGoToCatalog}
-          className="min-h-[42px] cursor-pointer rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
-        >
-          Voltar ao catálogo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={loadOrders}
+            disabled={loading}
+            className="inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </button>
+          <button
+            type="button"
+            onClick={onGoToCatalog}
+            className="min-h-[42px] cursor-pointer rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+          >
+            Voltar ao catálogo
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -137,6 +147,7 @@ export function OrdersView({ config, onGoToCatalog }: OrdersViewProps) {
           const payment = Array.isArray(order.payments)
             ? order.payments[0]
             : order.payments;
+          const paymentSummary = formatPaymentSummary(payment);
 
           return (
             <section
@@ -291,14 +302,21 @@ export function OrdersView({ config, onGoToCatalog }: OrdersViewProps) {
               )}
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 pt-4 text-sm">
-                <div className="text-xs text-neutral-600">
-                  {payment && (
+                <div className="space-y-0.5 text-xs text-neutral-600">
+                  {paymentSummary && (
                     <>
-                      Pagamento:{' '}
-                      <strong>
-                        {PAYMENT_METHOD_LABELS[payment.method] || payment.method}
-                      </strong>{' '}
-                      — {PAYMENT_STATUS_LABELS[payment.status] || payment.status}
+                      <p>
+                        Pagamento: <strong>{paymentSummary.primary}</strong> —{' '}
+                        {paymentSummary.statusLabel}
+                      </p>
+                      {paymentSummary.extras.length > 0 && (
+                        <p className="text-neutral-500">
+                          {paymentSummary.extras.join(' · ')}
+                        </p>
+                      )}
+                      {paymentSummary.note && (
+                        <p className="text-neutral-500">{paymentSummary.note}</p>
+                      )}
                     </>
                   )}
                 </div>

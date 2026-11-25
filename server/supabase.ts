@@ -14,14 +14,36 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
+export function getMercadoPagoConfig() {
+  const accessToken =
+    getEnv('MP_ACCESS_TOKEN') || getEnv('PAYMENT_PROVIDER_SECRET_KEY');
+  const publicKey = getEnv('VITE_MP_PUBLIC_KEY');
+  const webhookSecret = getEnv('MP_WEBHOOK_SECRET');
+  const onlineCardConfigured = Boolean(
+    accessToken && publicKey && webhookSecret
+  );
+
+  return {
+    accessToken,
+    publicKey,
+    webhookSecret,
+    onlineCardConfigured,
+    pixConfigured: Boolean(accessToken),
+  };
+}
+
 export function getStoreConfig() {
+  const mp = getMercadoPagoConfig();
   return {
     storeName: getEnv('VITE_STORE_NAME') || 'AgroMarconato',
     storeDescription:
       getEnv('VITE_STORE_DESCRIPTION') ||
       'A Agro Marconato é uma loja de produtos agropecuários, artigos para pets e ponto de coleta e envio do Mercado Livre localizada em Irati, PR.',
     whatsappNumber: getEnv('VITE_WHATSAPP_NUMBER') || '+55 42 98809-3611',
-    paymentConfigured: Boolean(getEnv('PAYMENT_PROVIDER_SECRET_KEY')),
+    paymentConfigured: mp.onlineCardConfigured,
+    onlineCardConfigured: mp.onlineCardConfigured,
+    mpPublicKey: mp.onlineCardConfigured ? mp.publicKey : '',
+    paymentProvider: mp.onlineCardConfigured ? 'mercadopago' : null,
     supabaseConfigured: isSupabaseConfigured(),
   };
 }

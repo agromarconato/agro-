@@ -23,6 +23,9 @@ const DEFAULT_CONFIG: StoreConfig = {
     (import.meta.env.VITE_WHATSAPP_NUMBER as string | undefined)?.trim() ||
     '+55 42 98809-3611',
   paymentConfigured: false,
+  onlineCardConfigured: false,
+  mpPublicKey: (import.meta.env.VITE_MP_PUBLIC_KEY as string | undefined)?.trim() || '',
+  paymentProvider: null,
   supabaseConfigured: true,
 };
 
@@ -52,6 +55,9 @@ function StorefrontApp() {
       storeDescription: string;
       whatsappNumber: string;
       paymentConfigured: boolean;
+      onlineCardConfigured?: boolean;
+      mpPublicKey?: string;
+      paymentProvider?: string | null;
       supabaseConfigured: boolean;
     }>('/api/health')
       .then((res) =>
@@ -61,6 +67,9 @@ function StorefrontApp() {
             res.storeDescription || DEFAULT_CONFIG.storeDescription,
           whatsappNumber: res.whatsappNumber || DEFAULT_CONFIG.whatsappNumber,
           paymentConfigured: res.paymentConfigured,
+          onlineCardConfigured: Boolean(res.onlineCardConfigured),
+          mpPublicKey: res.mpPublicKey || DEFAULT_CONFIG.mpPublicKey,
+          paymentProvider: res.paymentProvider ?? null,
           supabaseConfigured: res.supabaseConfigured,
         })
       )

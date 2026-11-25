@@ -92,13 +92,38 @@ export interface OrderItem {
   } | null;
 }
 
+export type PaymentMethodCode =
+  | 'pix'
+  | 'card'
+  | 'credit_card'
+  | 'debit_card'
+  | 'cash_on_delivery';
+
+export type PaymentChannel = 'online' | 'on_delivery';
+
+export interface OrderPaymentDetails {
+  selectedMethod?: string;
+  channel?: PaymentChannel;
+  label?: string;
+  changeFor?: string | null;
+  installments?: number;
+  cardBrand?: string | null;
+  cardLastFour?: string | null;
+  mpStatus?: string;
+  mpStatusDetail?: string | null;
+  awaitingWebhook?: boolean;
+  webhookVerified?: boolean;
+  note?: string;
+}
+
 export interface OrderPayment {
   id: string;
-  method: 'pix' | 'card';
+  method: PaymentMethodCode | string;
   status: string;
   amount: number;
   provider: string | null;
-  details: { note?: string } | null;
+  provider_reference?: string | null;
+  details: OrderPaymentDetails | null;
 }
 
 export interface OrderRecord {
@@ -143,5 +168,8 @@ export interface StoreConfig {
   storeDescription: string;
   whatsappNumber: string;
   paymentConfigured: boolean;
+  onlineCardConfigured?: boolean;
+  mpPublicKey?: string;
+  paymentProvider?: string | null;
   supabaseConfigured: boolean;
 }

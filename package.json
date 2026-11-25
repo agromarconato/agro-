@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@mercadopago/sdk-js": "^0.0.3",
     "@supabase/supabase-js": "^2.119.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/multer": "^2.3.0",

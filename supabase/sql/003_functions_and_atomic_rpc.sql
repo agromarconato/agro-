@@ -133,7 +133,11 @@ create or replace function public.create_order_atomic(
   p_shipping_city text,
   p_shipping_state text,
   p_notes text default null,
-  p_payment_configured boolean default false
+  p_payment_configured boolean default false,
+  p_payment_details jsonb default '{}'::jsonb,
+  p_order_status public.order_status default 'pending_payment',
+  p_payment_status public.payment_status default null,
+  p_provider text default null
 )
 returns table (
   order_id uuid,
@@ -161,7 +165,9 @@ declare
   v_unit_price numeric(10,2);
   v_line_total numeric(10,2);
   v_item_count integer := 0;
+  v_order_status public.order_status;
   v_payment_status public.payment_status;
+  v_provider text;
 begin
   if p_idempotency_key is null or char_length(trim(p_idempotency_key)) < 8 then
     raise exception 'INVALID_IDEMPOTENCY_KEY';
@@ -285,6 +291,24 @@ begin
 
   v_total := round((v_subtotal + v_shipping_fee)::numeric, 2);
 
+  v_order_status := case
+    when p_order_status in ('pending_payment', 'awaiting_confirmation') then p_order_status
+    else 'pending_payment'::public.order_status
+  end;
+
+  v_payment_status := coalesce(
+    case
+      when p_payment_status in ('pending_configuration', 'pending') then p_payment_status
+      else null
+    end,
+    case when p_payment_configured then 'pending'::public.payment_status else 'pending_configuration'::public.payment_status end
+  );
+
+  v_provider := coalesce(
+    nullif(trim(coalesce(p_provider, '')), ''),
+    case when p_payment_configured then 'mercadopago' else 'unconfigured' end
+  );
+
   insert into public.orders (
     user_id,
     idempotency_key,
@@ -306,7 +330,7 @@ begin
   ) values (
     p_user_id,
     p_idempotency_key,
-    'pending_payment',
+    v_order_status,
     v_subtotal,
     v_shipping_fee,
     v_total,
@@ -362,8 +386,6 @@ begin
   where ci.cart_id = v_cart_id
     and ci.user_id = p_user_id;
 
-  v_payment_status := case when p_payment_configured then 'pending' else 'pending_configuration' end;
-
   insert into public.payments (
     order_id,
     user_id,
@@ -378,14 +400,8 @@ begin
     p_payment_method,
     v_payment_status,
     v_total,
-    case when p_payment_configured then 'configured_gateway' else 'unconfigured' end,
-    jsonb_build_object(
-      'note',
-      case
-        when p_payment_configured then 'Aguardando confirmação do provedor de pagamento.'
-        else 'Provedor de pagamento ainda não configurado no servidor.'
-      end
-    )
+    v_provider,
+    coalesce(p_payment_details, '{}'::jsonb)
   );
 
   -- Limpa carrinho do usuário após criar o pedido
@@ -396,7 +412,7 @@ begin
   return query select
     v_order_id,
     v_order_number,
-    'pending_payment'::public.order_status,
+    v_order_status,
     v_subtotal,
     v_shipping_fee,
     v_total,

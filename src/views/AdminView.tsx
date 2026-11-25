@@ -6,12 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import {
   ORDER_STATUS_LABELS,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_LABELS,
   formatCpfDisplay,
   formatCpfInput,
   formatCurrency,
   formatDateTime,
+  formatPaymentSummary,
   formatPhoneInput,
 } from '../lib/format';
 import type { AdminUserRow, OrderRecord, OrderStatus, Product, SaleType } from '../types';
@@ -762,6 +761,7 @@ export function AdminView() {
                 const payment = Array.isArray(order.payments)
                   ? order.payments[0]
                   : order.payments;
+                const paymentSummary = formatPaymentSummary(payment);
 
                 return (
                   <div
@@ -842,17 +842,27 @@ export function AdminView() {
                       ))}
                     </div>
 
-                    {payment && (
-                      <div className="mt-3 border-t border-neutral-100 pt-3 text-xs text-neutral-600">
-                        Pagamento:{' '}
-                        <strong>
-                          {PAYMENT_METHOD_LABELS[payment.method] ||
-                            payment.method}
-                        </strong>{' '}
-                        ·{' '}
-                        {PAYMENT_STATUS_LABELS[payment.status] ||
-                          payment.status}
-                        {payment.details?.note ? ` (${payment.details.note})` : ''}
+                    {paymentSummary && (
+                      <div className="mt-3 space-y-0.5 border-t border-neutral-100 pt-3 text-xs text-neutral-700">
+                        <p>
+                          Pagamento: <strong>{paymentSummary.primary}</strong> ·{' '}
+                          <span className="font-medium">
+                            {paymentSummary.statusLabel}
+                          </span>
+                          {payment?.provider_reference
+                            ? ` · Ref. gateway: ${payment.provider_reference}`
+                            : ''}
+                        </p>
+                        {paymentSummary.extras.length > 0 && (
+                          <p className="text-neutral-600">
+                            {paymentSummary.extras.join(' · ')}
+                          </p>
+                        )}
+                        {paymentSummary.note && (
+                          <p className="text-neutral-500">
+                            {paymentSummary.note}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

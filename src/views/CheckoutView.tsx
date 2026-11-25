@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import {
+  ORDER_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
   buildWhatsappLink,
   formatCepInput,
   formatCurrency,
@@ -30,11 +32,13 @@ interface CreatedOrderResponse {
   order: {
     order_id: string;
     order_number: number;
+    status?: string;
     subtotal: number;
     shipping_fee: number;
     total: number;
   };
   paymentConfigured: boolean;
+  paymentSummary?: string;
   paymentNotice: string;
 }
 
@@ -54,7 +58,6 @@ export function CheckoutView({
   const [city, setCity] = useState('');
   const [stateUf, setStateUf] = useState('');
   const [notes, setNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
 
   const [cepLoading, setCepLoading] = useState(false);
   const [cepFeedback, setCepFeedback] = useState<string | null>(null);
@@ -130,7 +133,8 @@ export function CheckoutView({
         token: accessToken,
         body: {
           idempotencyKey,
-          paymentMethod,
+          paymentMethod: 'cash_on_delivery',
+          paymentChannel: 'on_delivery',
           shipping: {
             cep,
             street: street.trim(),
@@ -166,12 +170,18 @@ export function CheckoutView({
                 Pedido #{confirmedOrder.order.order_number} registrado
               </h1>
               <p className="text-sm text-neutral-600">
-                Valores conferidos e salvos com segurança no servidor.
+                Pagamento na entrega registrado com sucesso.
               </p>
             </div>
           </div>
 
           <div className="mt-6 space-y-2 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-neutral-600">Forma de pagamento</span>
+              <span className="font-semibold text-emerald-950">
+                Pagamento na entrega
+              </span>
+            </div>
             <div className="flex justify-between">
               <span className="text-neutral-600">Subtotal dos produtos</span>
               <span className="font-mono tabular-nums font-medium">
@@ -192,9 +202,12 @@ export function CheckoutView({
             </div>
           </div>
 
-          <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-            <p className="font-semibold">Informação sobre pagamento</p>
-            <p className="mt-1">{confirmedOrder.paymentNotice}</p>
+          <div className="mt-5 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950">
+            <p className="font-semibold">Pedido confirmado</p>
+            <p className="mt-1">
+              O seu pedido foi enviado para a Agro Marconato e será preparado para
+              entrega. O pagamento será realizado no ato da entrega.
+            </p>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -208,7 +221,7 @@ export function CheckoutView({
             <a
               href={buildWhatsappLink(
                 config.whatsappNumber,
-                `Olá! Acabei de registrar o pedido #${confirmedOrder.order.order_number} na ${config.storeName} e gostaria de confirmar o pagamento.`
+                `Olá! Acabei de registrar o pedido #${confirmedOrder.order.order_number} na ${config.storeName} com pagamento na entrega.`
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -445,56 +458,85 @@ export function CheckoutView({
             )}
           </section>
 
-          {/* Forma de pagamento */}
+          {/* Forma de pagamento simplificada conforme solicitado */}
           <section className="rounded-xl border border-neutral-200 bg-white p-6">
             <h2 className="text-lg font-bold text-neutral-900">
               Forma de pagamento
             </h2>
+            <p className="mt-1 text-xs text-neutral-600">
+              Selecione a forma de pagamento desejada para o seu pedido.
+            </p>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('pix')}
-                className={`min-h-[54px] cursor-pointer rounded-lg border p-4 text-left transition-colors ${
-                  paymentMethod === 'pix'
-                    ? 'border-emerald-900 bg-emerald-50'
-                    : 'border-neutral-200 hover:bg-neutral-50'
-                }`}
-              >
-                <span className="block text-sm font-bold text-neutral-900">
-                  Pix
+            <div className="mt-4 space-y-3">
+              {/* Opção 1: Pagamento na entrega (selecionável e funcional) */}
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-emerald-900 bg-emerald-50/60 p-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="simplified-payment"
+                    defaultChecked
+                    className="h-4 w-4 text-emerald-900"
+                  />
+                  <div>
+                    <span className="block text-sm font-bold text-neutral-900">
+                      Pagamento na entrega
+                    </span>
+                    <span className="block text-xs text-neutral-600">
+                      Pague no ato do recebimento do seu pedido em Irati-PR.
+                    </span>
+                  </div>
+                </div>
+                <span className="rounded-md bg-emerald-900 px-2.5 py-1 text-xs font-semibold text-white">
+                  Disponível
                 </span>
-                <span className="mt-0.5 block text-xs text-neutral-600">
-                  Pagamento instantâneo
-                </span>
-              </button>
+              </label>
 
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('card')}
-                className={`min-h-[54px] cursor-pointer rounded-lg border p-4 text-left transition-colors ${
-                  paymentMethod === 'card'
-                    ? 'border-emerald-900 bg-emerald-50'
-                    : 'border-neutral-200 hover:bg-neutral-50'
-                }`}
-              >
-                <span className="block text-sm font-bold text-neutral-900">
-                  Cartão
+              {/* Opção 2: Cartão de crédito online (desabilitado) */}
+              <div className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 p-4 opacity-75">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="simplified-payment"
+                    disabled
+                    className="h-4 w-4 cursor-not-allowed"
+                  />
+                  <div>
+                    <span className="block text-sm font-bold text-neutral-700">
+                      Cartão de crédito online
+                    </span>
+                    <span className="block text-xs text-neutral-500">
+                      Processamento seguro de crédito diretamente pelo site.
+                    </span>
+                  </div>
+                </div>
+                <span className="rounded-md bg-neutral-200 px-2.5 py-1 text-xs font-semibold text-neutral-700">
+                  Disponível em breve
                 </span>
-                <span className="mt-0.5 block text-xs text-neutral-600">
-                  Crédito ou débito
-                </span>
-              </button>
-            </div>
-
-            {!config.paymentConfigured && (
-              <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3.5 text-xs leading-relaxed text-neutral-700">
-                <strong>Aviso de pagamento:</strong> Nenhum provedor de pagamento
-                online (<code className="font-mono">PAYMENT_PROVIDER_SECRET_KEY</code>)
-                está configurado no momento. O pedido será registrado com o método
-                selecionado e aguardando confirmação da loja.
               </div>
-            )}
+
+              {/* Opção 3: Cartão de débito online (desabilitado) */}
+              <div className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 p-4 opacity-75">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="simplified-payment"
+                    disabled
+                    className="h-4 w-4 cursor-not-allowed"
+                  />
+                  <div>
+                    <span className="block text-sm font-bold text-neutral-700">
+                      Cartão de débito online
+                    </span>
+                    <span className="block text-xs text-neutral-500">
+                      Pagamento à vista com débito online.
+                    </span>
+                  </div>
+                </div>
+                <span className="rounded-md bg-neutral-200 px-2.5 py-1 text-xs font-semibold text-neutral-700">
+                  Disponível em breve
+                </span>
+              </div>
+            </div>
 
             <div className="mt-4">
               <label

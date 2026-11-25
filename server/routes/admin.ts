@@ -297,7 +297,7 @@ router.get('/orders', async (req, res) => {
     let query = supabase
       .from('orders')
       .select(
-        'id, order_number, user_id, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, customer_name, customer_cpf, customer_phone, notes, created_at, updated_at, order_items(id, product_id, product_name, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, details)'
+        'id, order_number, user_id, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, customer_name, customer_cpf, customer_phone, notes, created_at, updated_at, order_items(id, product_id, product_name, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, provider_reference, details)'
       )
       .order('created_at', { ascending: false });
 

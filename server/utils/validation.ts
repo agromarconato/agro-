@@ -124,13 +124,52 @@ export const shippingAddressSchema = z.object({
     .transform((v) => v.toUpperCase()),
 });
 
-export const createOrderSchema = z.object({
-  idempotencyKey: z.string().trim().min(8).max(100),
-  paymentMethod: z.enum(['pix', 'card']),
-  shipping: shippingAddressSchema,
-  notes: z.string().trim().max(400).optional().nullable(),
-  saveAddress: z.boolean().optional(),
-});
+export const createOrderSchema = z
+  .object({
+    idempotencyKey: z.string().trim().min(8).max(100),
+    paymentMethod: z.enum([
+      'pix',
+      'card',
+      'credit_card',
+      'debit_card',
+      'cash_on_delivery',
+    ]),
+    paymentChannel: z.enum(['online', 'on_delivery']).optional(),
+    changeFor: z.string().trim().max(40).optional().nullable(),
+    shipping: shippingAddressSchema,
+    notes: z.string().trim().max(400).optional().nullable(),
+    saveAddress: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.paymentMethod === 'cash_on_delivery' &&
+      data.paymentChannel === 'online'
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Pagamento em dinheiro é válido apenas na entrega.',
+        path: ['paymentChannel'],
+      });
+    }
+  });
+
+export const processMercadoPagoCardSchema = z
+  .object({
+    orderId: z.string().uuid('Pedido inválido.'),
+    cardType: z.enum(['credit_card', 'debit_card']),
+    token: z.string().trim().min(10, 'Token de cartão inválido.').max(200),
+    paymentMethodId: z
+      .string()
+      .trim()
+      .min(2, 'Bandeira do cartão inválida.')
+      .max(60),
+    issuerId: z.union([z.string().trim().max(40), z.number()]).optional().nullable(),
+    installments: z.number().int().min(1).max(24).default(1),
+    payerEmail: z.string().trim().email('E-mail do pagador inválido.').max(180),
+    identificationType: z.string().trim().max(20).optional().nullable(),
+    identificationNumber: z.string().trim().max(30).optional().nullable(),
+  })
+  .strict();
 
 export const reviewSchema = z.object({
   productId: z.string().uuid('Produto inválido.'),

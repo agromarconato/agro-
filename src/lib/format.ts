@@ -1,3 +1,5 @@
+import type { OrderPayment } from '../types';
+
 export function formatCurrency(value: number | string | null | undefined): string {
   const num = Number(value ?? 0);
   return num.toLocaleString('pt-BR', {
@@ -78,18 +80,74 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending_configuration: 'Aguardando configuração do gateway',
+  pending_configuration: 'Aguardando confirmação da loja',
   pending: 'Pendente',
-  authorized: 'Autorizado',
+  authorized: 'Autorizado (aguardando webhook)',
   paid: 'Confirmado',
-  failed: 'Não aprovado / Cancelado',
+  failed: 'Recusado / Não aprovado',
   refunded: 'Estornado',
 };
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   pix: 'Pix',
   card: 'Cartão',
+  credit_card: 'Cartão de crédito online',
+  debit_card: 'Cartão de débito online',
+  cash_on_delivery: 'Pagamento na entrega',
 };
+
+export function formatPaymentSummary(
+  payment: OrderPayment | null | undefined
+): {
+  primary: string;
+  statusLabel: string;
+  extras: string[];
+  note: string | null;
+} | null {
+  if (!payment) return null;
+  const details = payment.details || {};
+  const primary =
+    details.label ||
+    PAYMENT_METHOD_LABELS[details.selectedMethod || payment.method] ||
+    PAYMENT_METHOD_LABELS[payment.method] ||
+    payment.method;
+
+  const statusLabel = PAYMENT_STATUS_LABELS[payment.status] || payment.status;
+  const extras: string[] = [];
+
+  if (details.channel === 'on_delivery') {
+    extras.push('Receber pagamento na entrega');
+  } else if (details.channel === 'online') {
+    extras.push('Pagamento online');
+  }
+
+  if (details.changeFor) {
+    extras.push(`Troco para: ${details.changeFor}`);
+  }
+
+  if (details.installments && Number(details.installments) > 0) {
+    extras.push(
+      Number(details.installments) === 1
+        ? 'À vista (1x)'
+        : `Parcelado em ${details.installments}x`
+    );
+  }
+
+  if (details.cardBrand || details.cardLastFour) {
+    const brand = details.cardBrand
+      ? String(details.cardBrand).toUpperCase()
+      : 'Cartão';
+    const last4 = details.cardLastFour ? ` final ${details.cardLastFour}` : '';
+    extras.push(`${brand}${last4}`);
+  }
+
+  return {
+    primary,
+    statusLabel,
+    extras,
+    note: details.note || null,
+  };
+}
 
 export function isValidCpfClient(raw: string): boolean {
   const cpf = raw.replace(/\D/g, '');

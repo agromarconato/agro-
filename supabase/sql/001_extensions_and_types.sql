@@ -34,7 +34,13 @@ end $$;
 
 do $$
 begin
-  create type public.payment_method as enum ('pix', 'card');
+  create type public.payment_method as enum (
+    'pix',
+    'card',
+    'credit_card',
+    'debit_card',
+    'cash_on_delivery'
+  );
 exception
   when duplicate_object then null;
 end $$;
