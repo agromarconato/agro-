@@ -31,11 +31,13 @@ export const HERO_BANNERS = [
     id: 'vila-ferramentas',
     src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.18.06_26d233e7.jpeg',
     alt: 'Vila Ferramentas - De profissional para profissional',
+    backdropClass: 'bg-gradient-to-r from-[#241b17] via-[#1f1d1c] to-[#5c280f]',
   },
   {
     id: 'racao-mandala',
     src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.13.44__1__7f49c5d5.jpeg',
     alt: 'Ração Mandala - Qualidade e nutrição em cada refeição na Agro Marconato',
+    backdropClass: 'bg-gradient-to-r from-[#4b090d] via-[#5d0e13] to-[#3d080b]',
   },
 ] as const;
 
@@ -459,7 +461,7 @@ export function CatalogView({
         <section
           aria-roledescription="carousel"
           aria-label={`Destaques ${config.storeName}`}
-          className="relative w-full overflow-hidden rounded-2xl border border-emerald-950/15 bg-neutral-950 shadow-sm"
+          className={`relative w-full overflow-hidden rounded-2xl border border-emerald-950/15 shadow-sm transition-colors duration-700 ${HERO_BANNERS[activeBannerIndex].backdropClass}`}
         >
           <div className="relative h-[220px] sm:h-[290px] lg:h-[440px] w-full overflow-hidden">
             {HERO_BANNERS.map((banner, idx) => {
@@ -468,7 +470,9 @@ export function CatalogView({
                 <div
                   key={banner.id}
                   aria-hidden={!isActive}
-                  className={`absolute inset-0 flex h-full w-full items-center justify-center transition-opacity duration-700 ease-in-out ${
+                  className={`absolute inset-0 flex h-full w-full items-center justify-center overflow-hidden transition-opacity duration-700 ease-in-out ${
+                    banner.backdropClass
+                  } ${
                     isActive
                       ? 'z-10 opacity-100'
                       : 'pointer-events-none z-0 opacity-0'
@@ -476,9 +480,15 @@ export function CatalogView({
                 >
                   <img
                     src={banner.src}
+                    alt=""
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-85 blur-2xl saturate-125 select-none"
+                  />
+                  <img
+                    src={banner.src}
                     alt={banner.alt}
                     loading={idx === 0 ? 'eager' : 'lazy'}
-                    className="max-h-full max-w-full h-auto w-auto object-contain select-none"
+                    className="relative z-10 max-h-full max-w-full h-auto w-auto object-contain select-none"
                   />
                 </div>
               );
