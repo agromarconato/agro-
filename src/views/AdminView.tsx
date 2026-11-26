@@ -1,5 +1,10 @@
 import { Pencil, Plus, Trash2, Upload, UserPlus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ANIMAL_SUBCATEGORIES,
+  MAIN_CATEGORIES,
+  getDepartmentSubcategories,
+} from '../../shared/catalogTaxonomy';
 import { PasswordInput } from '../components/PasswordInput';
 import { ProductImage } from '../components/ProductImage';
 import { useAuth } from '../context/AuthContext';
@@ -10,10 +15,14 @@ import {
   formatCpfInput,
   formatCurrency,
   formatDateTime,
+  formatDeliveryModeInfo,
   formatPaymentSummary,
   formatPhoneInput,
+  formatProductCategories,
 } from '../lib/format';
 import type { AdminUserRow, OrderRecord, OrderStatus, Product, SaleType } from '../types';
+
+const CUSTOM_SUBCATEGORY_SENTINEL = '__custom__';
 
 export function AdminView() {
   const { user, accessToken } = useAuth();
@@ -32,7 +41,10 @@ export function AdminView() {
   // Form produto
   const [pName, setPName] = useState('');
   const [pDesc, setPDesc] = useState('');
-  const [pCategory, setPCategory] = useState('');
+  const [pCategory, setPCategory] = useState<string>(MAIN_CATEGORIES[0]);
+  const [pAdditionalCategories, setPAdditionalCategories] = useState<string[]>([]);
+  const [pSubcategorySelect, setPSubcategorySelect] = useState('');
+  const [pCustomSubcategory, setPCustomSubcategory] = useState('');
   const [pSaleType, setPSaleType] = useState<SaleType>('unit');
   const [pPriceUnit, setPPriceUnit] = useState('');
   const [pPromoUnit, setPPromoUnit] = useState('');
@@ -122,11 +134,38 @@ export function AdminView() {
     if (activeTab === 'users') loadUsers();
   }, [activeTab, accessToken]);
 
+  const subcategoryOptions = useMemo(() => {
+    const set = new Set<string>([
+      ...getDepartmentSubcategories(pCategory),
+      ...ANIMAL_SUBCATEGORIES,
+    ]);
+    return Array.from(set);
+  }, [pCategory]);
+
+  const additionalCategoryOptions = useMemo(() => {
+    const candidates: string[] = [...MAIN_CATEGORIES, ...ANIMAL_SUBCATEGORIES];
+    return candidates.filter((item) => item !== pCategory);
+  }, [pCategory]);
+
+  const resolvedSubcategory =
+    pSubcategorySelect === CUSTOM_SUBCATEGORY_SENTINEL
+      ? pCustomSubcategory.trim()
+      : pSubcategorySelect.trim();
+
+  const toggleAdditionalCategory = (cat: string) => {
+    setPAdditionalCategories((prev) =>
+      prev.includes(cat) ? prev.filter((item) => item !== cat) : [...prev, cat]
+    );
+  };
+
   const openNewProductForm = () => {
     setEditingProduct(null);
     setPName('');
     setPDesc('');
-    setPCategory('');
+    setPCategory(MAIN_CATEGORIES[0]);
+    setPAdditionalCategories([]);
+    setPSubcategorySelect('');
+    setPCustomSubcategory('');
     setPSaleType('unit');
     setPPriceUnit('');
     setPPromoUnit('');
@@ -143,10 +182,32 @@ export function AdminView() {
   };
 
   const openEditProductForm = (prod: Product) => {
+    const primary = prod.category || MAIN_CATEGORIES[0];
+    const knownSubs = new Set<string>([
+      ...getDepartmentSubcategories(primary),
+      ...ANIMAL_SUBCATEGORIES,
+    ]);
+    const existingSub = (prod.subcategory || '').trim();
+
     setEditingProduct(prod);
     setPName(prod.name);
     setPDesc(prod.description);
-    setPCategory(prod.category || '');
+    setPCategory(primary);
+    setPAdditionalCategories(
+      Array.isArray(prod.additional_categories)
+        ? prod.additional_categories.filter((c) => c && c !== primary)
+        : []
+    );
+    if (!existingSub) {
+      setPSubcategorySelect('');
+      setPCustomSubcategory('');
+    } else if (knownSubs.has(existingSub)) {
+      setPSubcategorySelect(existingSub);
+      setPCustomSubcategory('');
+    } else {
+      setPSubcategorySelect(CUSTOM_SUBCATEGORY_SENTINEL);
+      setPCustomSubcategory(existingSub);
+    }
     setPSaleType(prod.sale_type);
     setPPriceUnit(prod.price_unit !== null ? String(prod.price_unit) : '');
     setPPromoUnit(
@@ -197,6 +258,12 @@ export function AdminView() {
     e.preventDefault();
     setProductError(null);
     setProductSuccess(null);
+
+    if (!pCategory.trim()) {
+      setProductError('Selecione a categoria principal do produto.');
+      return;
+    }
+
     setSavingProduct(true);
 
     const toNum = (val: string) => {
@@ -206,10 +273,21 @@ export function AdminView() {
       return Number.isFinite(n) ? n : null;
     };
 
+    const normalizedPrimary = pCategory.trim();
+    const cleanedAdditional = Array.from(
+      new Set(
+        pAdditionalCategories
+          .map((c) => c.trim())
+          .filter((c) => c && c !== normalizedPrimary)
+      )
+    );
+
     const body = {
       name: pName.trim(),
       description: pDesc.trim(),
-      category: pCategory.trim() || null,
+      category: normalizedPrimary,
+      additionalCategories: cleanedAdditional,
+      subcategory: resolvedSubcategory || null,
       imageUrl: pImageUrl || null,
       imagePath: pImagePath || null,
       saleType: pSaleType,
@@ -425,7 +503,7 @@ export function AdminView() {
               </h3>
 
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-neutral-800">
                     Nome do produto
                   </label>
@@ -441,15 +519,103 @@ export function AdminView() {
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-800">
-                    Categoria (opcional)
+                    Categoria principal
                   </label>
-                  <input
-                    type="text"
+                  <select
+                    required
                     value={pCategory}
-                    onChange={(e) => setPCategory(e.target.value)}
-                    placeholder="Ex: Rações para Cães, Aves, Bovinos"
+                    onChange={(e) => {
+                      const nextPrimary = e.target.value;
+                      setPCategory(nextPrimary);
+                      setPAdditionalCategories((prev) =>
+                        prev.filter((c) => c !== nextPrimary)
+                      );
+                    }}
                     className="mt-1 h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm"
-                  />
+                  >
+                    {MAIN_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    {pCategory &&
+                      !(MAIN_CATEGORIES as readonly string[]).includes(
+                        pCategory
+                      ) && <option value={pCategory}>{pCategory} (atual)</option>}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-800">
+                    Subcategoria ou tipo específico (opcional)
+                  </label>
+                  <select
+                    value={pSubcategorySelect}
+                    onChange={(e) => setPSubcategorySelect(e.target.value)}
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm"
+                  >
+                    <option value="">Sem subcategoria específica</option>
+                    {subcategoryOptions.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                    <option value={CUSTOM_SUBCATEGORY_SENTINEL}>
+                      Outro (digitar manualmente)
+                    </option>
+                  </select>
+                  {pSubcategorySelect === CUSTOM_SUBCATEGORY_SENTINEL && (
+                    <input
+                      type="text"
+                      value={pCustomSubcategory}
+                      onChange={(e) => setPCustomSubcategory(e.target.value)}
+                      placeholder="Digite a subcategoria ou tipo..."
+                      className="mt-2 h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm"
+                    />
+                  )}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className="block text-xs font-semibold text-neutral-800">
+                    Categorias adicionais (opcional — ex.: marque &quot;Cachorro&quot; para ração de cachorro aparecer também em Animais &rarr; Cachorro)
+                  </span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {additionalCategoryOptions.map((cat) => {
+                      const checked = pAdditionalCategories.includes(cat);
+                      return (
+                        <label
+                          key={cat}
+                          className={`inline-flex min-h-[38px] cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            checked
+                              ? 'border-emerald-900 bg-emerald-900 text-white'
+                              : 'border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleAdditionalCategory(cat)}
+                            className="sr-only"
+                          />
+                          <span>{cat}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-xs text-emerald-900">
+                    Onde aparecerá no catálogo:{' '}
+                    <strong>
+                      Catálogo Geral
+                      {[
+                        pCategory,
+                        ...pAdditionalCategories.filter((c) => c !== pCategory),
+                        resolvedSubcategory,
+                      ]
+                        .filter(Boolean)
+                        .map((label) => `, ${label}`)
+                        .join('')}
+                    </strong>
+                  </p>
                 </div>
 
                 <div className="sm:col-span-2">
@@ -664,8 +830,12 @@ export function AdminView() {
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                      {prod.category && <span>{prod.category}</span>}
-                      <span>·</span>
+                      {formatProductCategories(prod).length > 0 && (
+                        <span>{formatProductCategories(prod).join(' · ')}</span>
+                      )}
+                      {formatProductCategories(prod).length > 0 && (
+                        <span>·</span>
+                      )}
                       <span
                         className={
                           prod.is_active
@@ -762,6 +932,7 @@ export function AdminView() {
                   ? order.payments[0]
                   : order.payments;
                 const paymentSummary = formatPaymentSummary(payment);
+                const deliveryInfo = formatDeliveryModeInfo(order);
 
                 return (
                   <div
@@ -781,14 +952,9 @@ export function AdminView() {
                           </span>{' '}
                           · Tel: {order.customer_phone}
                         </p>
-                        <p className="mt-1 text-xs text-neutral-600">
-                          Endereço: {order.shipping_street},{' '}
-                          {order.shipping_number}
-                          {order.shipping_complement
-                            ? ` (${order.shipping_complement})`
-                            : ''}{' '}
-                          — {order.shipping_neighborhood}, {order.shipping_city}
-                          /{order.shipping_state} · CEP {order.shipping_cep}
+                        <p className="mt-1 text-xs text-neutral-700">
+                          <strong>{deliveryInfo.label}:</strong>{' '}
+                          {deliveryInfo.detail}
                         </p>
                         {order.notes && (
                           <p className="mt-1 text-xs text-neutral-700">

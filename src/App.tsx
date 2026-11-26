@@ -42,6 +42,7 @@ function StorefrontApp() {
   const [config, setConfig] = useState<StoreConfig>(DEFAULT_CONFIG);
   const [view, setView] = useState<AppView>('catalog');
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [catalogSearch, setCatalogSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
     null
   );
@@ -90,6 +91,35 @@ function StorefrontApp() {
     }
     setView(nextView);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleHeaderSearchChange = (nextQuery: string) => {
+    setCatalogSearch(nextQuery);
+    if (view !== 'catalog' && nextQuery.trim().length > 0) {
+      if (!user?.mustChangePassword) {
+        setView('catalog');
+      }
+    }
+  };
+
+  const handleHeaderSearchSubmit = (query: string) => {
+    setCatalogSearch(query);
+    if (user?.mustChangePassword) {
+      setView('change-password');
+      return;
+    }
+    if (view !== 'catalog') {
+      setView('catalog');
+      setTimeout(() => {
+        document
+          .getElementById('catalogo-produtos')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    } else {
+      document
+        .getElementById('catalogo-produtos')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const handleAddToCart = async (
@@ -199,6 +229,9 @@ function StorefrontApp() {
         storeName={config.storeName}
         whatsappNumber={config.whatsappNumber}
         currentView={view}
+        searchQuery={catalogSearch}
+        onSearchChange={handleHeaderSearchChange}
+        onSearchSubmit={handleHeaderSearchSubmit}
         onNavigate={navigate}
         onOpenCart={() => setCartOpen(true)}
       />
@@ -215,6 +248,8 @@ function StorefrontApp() {
       {view === 'catalog' && (
         <CatalogView
           config={config}
+          searchInput={catalogSearch}
+          onSearchInputChange={setCatalogSearch}
           onSelectProduct={(id) => setSelectedProductId(id)}
           onAddToCart={handleAddToCart}
         />

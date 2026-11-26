@@ -127,6 +127,7 @@ export const shippingAddressSchema = z.object({
 export const createOrderSchema = z
   .object({
     idempotencyKey: z.string().trim().min(8).max(100),
+    deliveryMode: z.enum(['delivery', 'pickup']).default('delivery'),
     paymentMethod: z.enum([
       'pix',
       'card',
@@ -136,7 +137,7 @@ export const createOrderSchema = z
     ]),
     paymentChannel: z.enum(['online', 'on_delivery']).optional(),
     changeFor: z.string().trim().max(40).optional().nullable(),
-    shipping: shippingAddressSchema,
+    shipping: shippingAddressSchema.optional().nullable(),
     notes: z.string().trim().max(400).optional().nullable(),
     saveAddress: z.boolean().optional(),
   })
@@ -147,8 +148,15 @@ export const createOrderSchema = z
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Pagamento em dinheiro é válido apenas na entrega.',
+        message: 'Pagamento na entrega não pode usar canal online.',
         path: ['paymentChannel'],
+      });
+    }
+    if (data.deliveryMode === 'delivery' && !data.shipping) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Informe o endereço de entrega.',
+        path: ['shipping'],
       });
     }
   });
@@ -187,6 +195,12 @@ export const productUpsertSchema = z
     name: z.string().trim().min(2, 'Nome obrigatório.').max(160),
     description: z.string().trim().min(5, 'Descrição obrigatória.').max(4000),
     category: z.string().trim().max(80).optional().nullable(),
+    additionalCategories: z
+      .array(z.string().trim().min(1).max(80))
+      .max(20)
+      .optional()
+      .default([]),
+    subcategory: z.string().trim().max(80).optional().nullable(),
     imageUrl: z
       .string()
       .trim()

@@ -7,6 +7,7 @@ import {
   buildWhatsappLink,
   formatCurrency,
   formatDateTime,
+  formatDeliveryModeInfo,
   formatPaymentSummary,
 } from '../lib/format';
 import type { OrderRecord, StoreConfig } from '../types';
@@ -148,6 +149,7 @@ export function OrdersView({ config, onGoToCatalog }: OrdersViewProps) {
             ? order.payments[0]
             : order.payments;
           const paymentSummary = formatPaymentSummary(payment);
+          const deliveryInfo = formatDeliveryModeInfo(order);
 
           return (
             <section
@@ -167,13 +169,8 @@ export function OrdersView({ config, onGoToCatalog }: OrdersViewProps) {
                       {ORDER_STATUS_LABELS[order.status] || order.status}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-sm text-neutral-600">
-                    Entrega: {order.shipping_street}, {order.shipping_number}
-                    {order.shipping_complement
-                      ? ` (${order.shipping_complement})`
-                      : ''}{' '}
-                    — {order.shipping_neighborhood}, {order.shipping_city}/
-                    {order.shipping_state} · CEP {order.shipping_cep}
+                  <p className="mt-1.5 text-sm text-neutral-700">
+                    <strong>{deliveryInfo.label}:</strong> {deliveryInfo.detail}
                   </p>
                 </div>
 

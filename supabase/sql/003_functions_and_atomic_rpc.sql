@@ -137,7 +137,8 @@ create or replace function public.create_order_atomic(
   p_payment_details jsonb default '{}'::jsonb,
   p_order_status public.order_status default 'pending_payment',
   p_payment_status public.payment_status default null,
-  p_provider text default null
+  p_provider text default null,
+  p_delivery_mode text default 'delivery'
 )
 returns table (
   order_id uuid,
@@ -168,6 +169,14 @@ declare
   v_order_status public.order_status;
   v_payment_status public.payment_status;
   v_provider text;
+  v_delivery_mode text;
+  v_cep text;
+  v_street text;
+  v_number text;
+  v_complement text;
+  v_neighborhood text;
+  v_city text;
+  v_state text;
 begin
   if p_idempotency_key is null or char_length(trim(p_idempotency_key)) < 8 then
     raise exception 'INVALID_IDEMPOTENCY_KEY';
@@ -193,12 +202,35 @@ begin
     return;
   end if;
 
-  -- Regra obrigatória de frete: apenas Irati / PR com frete fixo de R$ 4,99
-  if public.normalize_city_text(p_shipping_city) <> 'irati'
-     or upper(trim(coalesce(p_shipping_state, ''))) <> 'PR' then
-    raise exception 'OUTSIDE_IRATI_DELIVERY_REQUIRES_WHATSAPP';
+  v_delivery_mode := case
+    when lower(trim(coalesce(p_delivery_mode, 'delivery'))) = 'pickup' then 'pickup'
+    else 'delivery'
+  end;
+
+  if v_delivery_mode = 'pickup' then
+    v_shipping_fee := 0;
+    v_cep := '84500000';
+    v_street := 'Retirada na loja — Agro Marconato';
+    v_number := 'S/N';
+    v_complement := 'Retirada em até 7 dias';
+    v_neighborhood := 'Centro';
+    v_city := 'Irati';
+    v_state := 'PR';
+  else
+    -- Regra obrigatória de frete: apenas Irati / PR com frete fixo de R$ 4,99
+    if public.normalize_city_text(p_shipping_city) <> 'irati'
+       or upper(trim(coalesce(p_shipping_state, ''))) <> 'PR' then
+      raise exception 'OUTSIDE_IRATI_DELIVERY_REQUIRES_WHATSAPP';
+    end if;
+    v_shipping_fee := 4.99;
+    v_cep := regexp_replace(p_shipping_cep, '\D', '', 'g');
+    v_street := trim(p_shipping_street);
+    v_number := trim(p_shipping_number);
+    v_complement := nullif(trim(coalesce(p_shipping_complement, '')), '');
+    v_neighborhood := trim(p_shipping_neighborhood);
+    v_city := trim(p_shipping_city);
+    v_state := upper(trim(p_shipping_state));
   end if;
-  v_shipping_fee := 4.99;
 
   select id, full_name, cpf, phone, is_active
     into v_profile
@@ -313,6 +345,7 @@ begin
     user_id,
     idempotency_key,
     status,
+    delivery_mode,
     subtotal,
     shipping_fee,
     total,
@@ -331,16 +364,17 @@ begin
     p_user_id,
     p_idempotency_key,
     v_order_status,
+    v_delivery_mode,
     v_subtotal,
     v_shipping_fee,
     v_total,
-    regexp_replace(p_shipping_cep, '\D', '', 'g'),
-    trim(p_shipping_street),
-    trim(p_shipping_number),
-    nullif(trim(coalesce(p_shipping_complement, '')), ''),
-    trim(p_shipping_neighborhood),
-    trim(p_shipping_city),
-    upper(trim(p_shipping_state)),
+    v_cep,
+    v_street,
+    v_number,
+    v_complement,
+    v_neighborhood,
+    v_city,
+    v_state,
     v_profile.full_name,
     v_profile.cpf,
     v_profile.phone,

@@ -1,16 +1,15 @@
-import { ArrowLeft, CheckCircle2, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, MapPin, MessageCircle, Store } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import {
-  ORDER_STATUS_LABELS,
-  PAYMENT_STATUS_LABELS,
+  PICKUP_NOTICE_TEXT,
   buildWhatsappLink,
   formatCepInput,
   formatCurrency,
   isIratiPr,
 } from '../lib/format';
-import type { StoreConfig } from '../types';
+import type { DeliveryMode, StoreConfig } from '../types';
 
 interface CheckoutViewProps {
   config: StoreConfig;
@@ -33,10 +32,13 @@ interface CreatedOrderResponse {
     order_id: string;
     order_number: number;
     status?: string;
+    delivery_mode?: DeliveryMode;
     subtotal: number;
     shipping_fee: number;
     total: number;
   };
+  deliveryMode?: DeliveryMode;
+  pickupNotice?: string | null;
   paymentConfigured: boolean;
   paymentSummary?: string;
   paymentNotice: string;
@@ -50,6 +52,7 @@ export function CheckoutView({
   const { accessToken, cart, refreshCart } = useAuth();
 
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('delivery');
   const [cep, setCep] = useState('');
   const [street, setStreet] = useState('');
   const [number, setNumber] = useState('');
@@ -66,12 +69,14 @@ export function CheckoutView({
   const [confirmedOrder, setConfirmedOrder] =
     useState<CreatedOrderResponse | null>(null);
 
+  const isPickup = deliveryMode === 'pickup';
   const addressEntered = city.trim().length >= 2 && stateUf.trim().length === 2;
-  const iratiEligible = addressEntered && isIratiPr(city, stateUf);
-  const outsideIrati = addressEntered && !iratiEligible;
+  const iratiEligible = !isPickup && addressEntered && isIratiPr(city, stateUf);
+  const outsideIrati = !isPickup && addressEntered && !iratiEligible;
 
-  const shippingFee = iratiEligible ? 4.99 : 0;
+  const shippingFee = isPickup ? 0 : iratiEligible ? 4.99 : 0;
   const estimatedTotal = Number((cart.subtotal + shippingFee).toFixed(2));
+  const canConfirmOrder = isPickup || iratiEligible;
 
   const outsideIratiWhatsappUrl = useMemo(() => {
     const itemsSummary = cart.items
@@ -119,7 +124,7 @@ export function CheckoutView({
     e.preventDefault();
     setError(null);
 
-    if (!iratiEligible) {
+    if (!isPickup && !iratiEligible) {
       setError(
         'Entregas fora de Irati-PR exigem combinação de frete pelo WhatsApp.'
       );
@@ -133,19 +138,24 @@ export function CheckoutView({
         token: accessToken,
         body: {
           idempotencyKey,
+          deliveryMode,
           paymentMethod: 'cash_on_delivery',
           paymentChannel: 'on_delivery',
-          shipping: {
-            cep,
-            street: street.trim(),
-            number: number.trim(),
-            complement: complement.trim() || null,
-            neighborhood: neighborhood.trim(),
-            city: city.trim(),
-            state: stateUf.trim().toUpperCase(),
-          },
+          ...(isPickup
+            ? {}
+            : {
+                shipping: {
+                  cep,
+                  street: street.trim(),
+                  number: number.trim(),
+                  complement: complement.trim() || null,
+                  neighborhood: neighborhood.trim(),
+                  city: city.trim(),
+                  state: stateUf.trim().toUpperCase(),
+                },
+              }),
           notes: notes.trim() || null,
-          saveAddress: true,
+          saveAddress: !isPickup,
         },
       });
       await refreshCart();
@@ -160,6 +170,10 @@ export function CheckoutView({
   };
 
   if (confirmedOrder) {
+    const confirmedPickup =
+      confirmedOrder.deliveryMode === 'pickup' ||
+      confirmedOrder.order.delivery_mode === 'pickup';
+
     return (
       <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
         <div className="rounded-2xl border border-emerald-900/20 bg-white p-8 shadow-sm">
@@ -170,12 +184,20 @@ export function CheckoutView({
                 Pedido #{confirmedOrder.order.order_number} registrado
               </h1>
               <p className="text-sm text-neutral-600">
-                Pagamento na entrega registrado com sucesso.
+                {confirmedPickup
+                  ? 'Retirada na loja selecionada com sucesso.'
+                  : 'Pagamento na entrega registrado com sucesso.'}
               </p>
             </div>
           </div>
 
           <div className="mt-6 space-y-2 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-neutral-600">Modalidade de entrega</span>
+              <span className="font-semibold text-emerald-950">
+                {confirmedPickup ? 'Retirar na loja' : 'Entrega no endereço'}
+              </span>
+            </div>
             <div className="flex justify-between">
               <span className="text-neutral-600">Forma de pagamento</span>
               <span className="font-semibold text-emerald-950">
@@ -189,7 +211,9 @@ export function CheckoutView({
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-600">Frete (Irati-PR)</span>
+              <span className="text-neutral-600">
+                {confirmedPickup ? 'Frete (Retirar na loja)' : 'Frete (Irati-PR)'}
+              </span>
               <span className="font-mono tabular-nums font-medium">
                 {formatCurrency(confirmedOrder.order.shipping_fee)}
               </span>
@@ -204,10 +228,17 @@ export function CheckoutView({
 
           <div className="mt-5 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950">
             <p className="font-semibold">Pedido confirmado</p>
-            <p className="mt-1">
-              O seu pedido foi enviado para a Agro Marconato e será preparado para
-              entrega. O pagamento será realizado no ato da entrega.
-            </p>
+            {confirmedPickup ? (
+              <p className="mt-1 font-medium">
+                {confirmedOrder.pickupNotice || PICKUP_NOTICE_TEXT} O pagamento
+                será realizado presencialmente no ato da retirada na loja.
+              </p>
+            ) : (
+              <p className="mt-1">
+                O seu pedido foi enviado para a Agro Marconato e será preparado para
+                entrega. O pagamento será realizado no ato da entrega.
+              </p>
+            )}
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -221,7 +252,7 @@ export function CheckoutView({
             <a
               href={buildWhatsappLink(
                 config.whatsappNumber,
-                `Olá! Acabei de registrar o pedido #${confirmedOrder.order.order_number} na ${config.storeName} com pagamento na entrega.`
+                `Olá! Acabei de registrar o pedido #${confirmedOrder.order.order_number} na ${config.storeName} (${confirmedPickup ? 'Retirar na loja' : 'Entrega no endereço'}).`
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -257,7 +288,7 @@ export function CheckoutView({
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <button
         type="button"
         onClick={onBackToCatalog}
@@ -267,7 +298,7 @@ export function CheckoutView({
         Voltar para o catálogo
       </button>
 
-      <h1 className="mt-4 text-2xl font-bold text-neutral-900">
+      <h1 className="mt-4 text-2xl font-bold text-neutral-900 sm:text-3xl">
         Entrega e Pagamento
       </h1>
 
@@ -276,187 +307,272 @@ export function CheckoutView({
         className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12"
       >
         <div className="space-y-6 lg:col-span-7">
-          {/* Endereço de entrega */}
+          {/* Modalidade de entrega (separada da forma de pagamento) */}
           <section className="rounded-xl border border-neutral-200 bg-white p-6">
             <h2 className="text-lg font-bold text-neutral-900">
-              Endereço de entrega
+              Modalidade de entrega
             </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Escolha entre receber no seu endereço em Irati-PR ou retirar gratuitamente na loja.
+            </p>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div className="flex-1">
-                <label
-                  htmlFor="chk-cep"
-                  className="block text-sm font-medium text-neutral-800"
-                >
-                  CEP
-                </label>
-                <input
-                  id="chk-cep"
-                  type="text"
-                  required
-                  inputMode="numeric"
-                  value={cep}
-                  onChange={(e) => {
-                    const formatted = formatCepInput(e.target.value);
-                    setCep(formatted);
-                    if (formatted.replace(/\D/g, '').length === 8) {
-                      lookupCep(formatted);
-                    }
-                  }}
-                  placeholder="84500-000"
-                  className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 font-mono tabular-nums text-sm"
-                />
-              </div>
-              <button
-                type="button"
-                disabled={cepLoading}
-                onClick={() => lookupCep(cep)}
-                className="min-h-[44px] cursor-pointer rounded-lg border border-emerald-900 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50 whitespace-nowrap"
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${
+                  !isPickup
+                    ? 'border-emerald-900 bg-emerald-50/60'
+                    : 'border-neutral-200 bg-white hover:bg-neutral-50'
+                }`}
               >
-                {cepLoading ? 'Buscando...' : 'Buscar CEP'}
-              </button>
+                <input
+                  type="radio"
+                  name="delivery-mode"
+                  checked={!isPickup}
+                  onChange={() => {
+                    setDeliveryMode('delivery');
+                    setError(null);
+                  }}
+                  className="mt-1 h-4 w-4 text-emerald-900"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-neutral-900">
+                    <MapPin className="h-4 w-4 text-emerald-900" />
+                    <span>Entrega no endereço</span>
+                  </div>
+                  <span className="mt-1 block text-xs text-neutral-600">
+                    Irati-PR com frete fixo de R$ 4,99.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${
+                  isPickup
+                    ? 'border-emerald-900 bg-emerald-50/60'
+                    : 'border-neutral-200 bg-white hover:bg-neutral-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="delivery-mode"
+                  checked={isPickup}
+                  onChange={() => {
+                    setDeliveryMode('pickup');
+                    setError(null);
+                  }}
+                  className="mt-1 h-4 w-4 text-emerald-900"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-900">
+                      <Store className="h-4 w-4 text-emerald-900" />
+                      <span>Retirar na loja</span>
+                    </span>
+                    <span className="font-mono text-xs font-bold text-emerald-800">
+                      Grátis
+                    </span>
+                  </div>
+                  <span className="mt-1 block text-xs text-neutral-600">
+                    Sem custo de frete. Retirada presencial em Irati-PR.
+                  </span>
+                </div>
+              </label>
             </div>
 
-            {cepFeedback && (
-              <p className="mt-2 text-xs text-neutral-600">{cepFeedback}</p>
-            )}
-
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-12">
-              <div className="sm:col-span-8">
-                <label
-                  htmlFor="chk-street"
-                  className="block text-sm font-medium text-neutral-800"
-                >
-                  Rua / Avenida
-                </label>
-                <input
-                  id="chk-street"
-                  type="text"
-                  required
-                  value={street}
-                  onChange={(e) => setStreet(e.target.value)}
-                  className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-4">
-                <label
-                  htmlFor="chk-number"
-                  className="block text-sm font-medium text-neutral-800"
-                >
-                  Número
-                </label>
-                <input
-                  id="chk-number"
-                  type="text"
-                  required
-                  value={number}
-                  onChange={(e) => setNumber(e.target.value)}
-                  className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-6">
-                <label
-                  htmlFor="chk-complement"
-                  className="block text-sm font-medium text-neutral-800"
-                >
-                  Complemento (opcional)
-                </label>
-                <input
-                  id="chk-complement"
-                  type="text"
-                  value={complement}
-                  onChange={(e) => setComplement(e.target.value)}
-                  placeholder="Casa, apto, referência..."
-                  className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-6">
-                <label
-                  htmlFor="chk-neighborhood"
-                  className="block text-sm font-medium text-neutral-800"
-                >
-                  Bairro
-                </label>
-                <input
-                  id="chk-neighborhood"
-                  type="text"
-                  required
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-8">
-                <label
-                  htmlFor="chk-city"
-                  className="block text-sm font-medium text-neutral-800"
-                >
-                  Cidade
-                </label>
-                <input
-                  id="chk-city"
-                  type="text"
-                  required
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Ex: Irati"
-                  className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-4">
-                <label
-                  htmlFor="chk-state"
-                  className="block text-sm font-medium text-neutral-800"
-                >
-                  Estado (UF)
-                </label>
-                <input
-                  id="chk-state"
-                  type="text"
-                  required
-                  maxLength={2}
-                  value={stateUf}
-                  onChange={(e) => setStateUf(e.target.value.toUpperCase())}
-                  placeholder="PR"
-                  className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 font-mono uppercase text-sm"
-                />
-              </div>
-            </div>
-
-            {iratiEligible && (
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-950">
-                Entrega em <strong>Irati, Paraná</strong> confirmada — frete fixo de{' '}
-                <strong className="font-mono tabular-nums">R$ 4,99</strong>.
-              </div>
-            )}
-
-            {outsideIrati && (
-              <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-                <p className="font-semibold">
-                  Entrega fora de Irati-PR sob combinação
-                </p>
-                <p className="mt-1">
-                  Para entregas fora de Irati, o frete é combinado diretamente pelo
-                  nosso WhatsApp ({config.whatsappNumber}). Não é possível
-                  finalizar automaticamente com frete estimado.
-                </p>
-                <a
-                  href={outsideIratiWhatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-emerald-900 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-950"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Combinar frete pelo WhatsApp
-                </a>
+            {isPickup && (
+              <div
+                role="note"
+                className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+              >
+                <p className="font-bold">Prazo para retirada na loja</p>
+                <p className="mt-1 font-medium">{PICKUP_NOTICE_TEXT}</p>
               </div>
             )}
           </section>
+
+          {/* Endereço de entrega (exibido apenas quando Entrega no endereço está selecionada) */}
+          {!isPickup && (
+            <section className="rounded-xl border border-neutral-200 bg-white p-6">
+              <h2 className="text-lg font-bold text-neutral-900">
+                Endereço de entrega
+              </h2>
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <label
+                    htmlFor="chk-cep"
+                    className="block text-sm font-medium text-neutral-800"
+                  >
+                    CEP
+                  </label>
+                  <input
+                    id="chk-cep"
+                    type="text"
+                    required={!isPickup}
+                    inputMode="numeric"
+                    value={cep}
+                    onChange={(e) => {
+                      const formatted = formatCepInput(e.target.value);
+                      setCep(formatted);
+                      if (formatted.replace(/\D/g, '').length === 8) {
+                        lookupCep(formatted);
+                      }
+                    }}
+                    placeholder="84500-000"
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 font-mono tabular-nums text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={cepLoading}
+                  onClick={() => lookupCep(cep)}
+                  className="min-h-[44px] cursor-pointer rounded-lg border border-emerald-900 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {cepLoading ? 'Buscando...' : 'Buscar CEP'}
+                </button>
+              </div>
+
+              {cepFeedback && (
+                <p className="mt-2 text-xs text-neutral-600">{cepFeedback}</p>
+              )}
+
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-12">
+                <div className="sm:col-span-8">
+                  <label
+                    htmlFor="chk-street"
+                    className="block text-sm font-medium text-neutral-800"
+                  >
+                    Rua / Avenida
+                  </label>
+                  <input
+                    id="chk-street"
+                    type="text"
+                    required={!isPickup}
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label
+                    htmlFor="chk-number"
+                    className="block text-sm font-medium text-neutral-800"
+                  >
+                    Número
+                  </label>
+                  <input
+                    id="chk-number"
+                    type="text"
+                    required={!isPickup}
+                    value={number}
+                    onChange={(e) => setNumber(e.target.value)}
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-6">
+                  <label
+                    htmlFor="chk-complement"
+                    className="block text-sm font-medium text-neutral-800"
+                  >
+                    Complemento (opcional)
+                  </label>
+                  <input
+                    id="chk-complement"
+                    type="text"
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                    placeholder="Casa, apto, referência..."
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-6">
+                  <label
+                    htmlFor="chk-neighborhood"
+                    className="block text-sm font-medium text-neutral-800"
+                  >
+                    Bairro
+                  </label>
+                  <input
+                    id="chk-neighborhood"
+                    type="text"
+                    required={!isPickup}
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-8">
+                  <label
+                    htmlFor="chk-city"
+                    className="block text-sm font-medium text-neutral-800"
+                  >
+                    Cidade
+                  </label>
+                  <input
+                    id="chk-city"
+                    type="text"
+                    required={!isPickup}
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Ex: Irati"
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label
+                    htmlFor="chk-state"
+                    className="block text-sm font-medium text-neutral-800"
+                  >
+                    Estado (UF)
+                  </label>
+                  <input
+                    id="chk-state"
+                    type="text"
+                    required={!isPickup}
+                    maxLength={2}
+                    value={stateUf}
+                    onChange={(e) => setStateUf(e.target.value.toUpperCase())}
+                    placeholder="PR"
+                    className="mt-1 h-11 w-full rounded-lg border border-neutral-300 px-3.5 font-mono uppercase text-sm"
+                  />
+                </div>
+              </div>
+
+              {iratiEligible && (
+                <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-950">
+                  Entrega em <strong>Irati, Paraná</strong> confirmada — frete fixo de{' '}
+                  <strong className="font-mono tabular-nums">R$ 4,99</strong>.
+                </div>
+              )}
+
+              {outsideIrati && (
+                <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                  <p className="font-semibold">
+                    Entrega fora de Irati-PR sob combinação
+                  </p>
+                  <p className="mt-1">
+                    Para entregas fora de Irati, o frete é combinado diretamente pelo
+                    nosso WhatsApp ({config.whatsappNumber}). Você também pode optar
+                    por <strong>Retirar na loja</strong> acima sem custo de frete.
+                  </p>
+                  <a
+                    href={outsideIratiWhatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-emerald-900 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-950"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Combinar frete pelo WhatsApp
+                  </a>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Forma de pagamento simplificada conforme solicitado */}
           <section className="rounded-xl border border-neutral-200 bg-white p-6">
@@ -482,7 +598,9 @@ export function CheckoutView({
                       Pagamento na entrega
                     </span>
                     <span className="block text-xs text-neutral-600">
-                      Pague no ato do recebimento do seu pedido em Irati-PR.
+                      {isPickup
+                        ? 'Pague presencialmente ao retirar seu pedido na loja.'
+                        : 'Pague no ato do recebimento do seu pedido em Irati-PR.'}
                     </span>
                   </div>
                 </div>
@@ -551,7 +669,11 @@ export function CheckoutView({
                 maxLength={400}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ex: Entregar no portão lateral..."
+                placeholder={
+                  isPickup
+                    ? 'Ex: Nome de quem vai retirar na loja...'
+                    : 'Ex: Entregar no portão lateral...'
+                }
                 className="mt-1 w-full rounded-lg border border-neutral-300 p-3 text-sm"
               />
             </div>
@@ -589,6 +711,12 @@ export function CheckoutView({
 
             <div className="mt-4 space-y-2 border-t border-neutral-200 pt-4 text-sm">
               <div className="flex justify-between">
+                <span className="text-neutral-600">Modalidade</span>
+                <span className="font-semibold text-neutral-900">
+                  {isPickup ? 'Retirar na loja' : 'Entrega no endereço'}
+                </span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-neutral-600">Subtotal</span>
                 <span className="font-mono tabular-nums font-medium">
                   {formatCurrency(cart.subtotal)}
@@ -597,22 +725,30 @@ export function CheckoutView({
               <div className="flex justify-between">
                 <span className="text-neutral-600">Frete</span>
                 <span className="font-mono tabular-nums font-medium">
-                  {iratiEligible
-                    ? formatCurrency(4.99)
-                    : outsideIrati
-                      ? 'Combinar no WhatsApp'
-                      : 'Informe o endereço'}
+                  {isPickup
+                    ? 'R$ 0,00 (Retirar na loja)'
+                    : iratiEligible
+                      ? formatCurrency(4.99)
+                      : outsideIrati
+                        ? 'Combinar no WhatsApp'
+                        : 'Informe o endereço'}
                 </span>
               </div>
               <div className="flex justify-between border-t border-neutral-200 pt-2 text-base font-bold text-emerald-950">
                 <span>Total</span>
                 <span className="font-mono tabular-nums">
-                  {iratiEligible
+                  {canConfirmOrder
                     ? formatCurrency(estimatedTotal)
                     : formatCurrency(cart.subtotal)}
                 </span>
               </div>
             </div>
+
+            {isPickup && (
+              <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-950">
+                {PICKUP_NOTICE_TEXT}
+              </p>
+            )}
 
             {error && (
               <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -622,7 +758,7 @@ export function CheckoutView({
 
             <button
               type="submit"
-              disabled={submitting || !iratiEligible}
+              disabled={submitting || !canConfirmOrder}
               className="mt-5 min-h-[48px] w-full cursor-pointer rounded-lg bg-emerald-900 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-950 disabled:cursor-not-allowed disabled:bg-neutral-300"
             >
               {submitting ? 'Registrando pedido...' : 'Confirmar pedido'}

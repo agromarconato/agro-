@@ -25,6 +25,8 @@ export interface Product {
   name: string;
   description: string;
   category: string | null;
+  additional_categories?: string[] | null;
+  subcategory?: string | null;
   image_url: string | null;
   image_path?: string | null;
   sale_type: SaleType;
@@ -113,8 +115,12 @@ export interface OrderPaymentDetails {
   mpStatusDetail?: string | null;
   awaitingWebhook?: boolean;
   webhookVerified?: boolean;
+  deliveryMode?: DeliveryMode;
+  pickupNotice?: string;
   note?: string;
 }
+
+export type DeliveryMode = 'delivery' | 'pickup';
 
 export interface OrderPayment {
   id: string;
@@ -131,6 +137,7 @@ export interface OrderRecord {
   order_number: number;
   user_id?: string;
   status: OrderStatus;
+  delivery_mode?: DeliveryMode;
   subtotal: number;
   shipping_fee: number;
   total: number;

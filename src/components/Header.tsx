@@ -1,4 +1,15 @@
-import { Menu, ShoppingBag, X } from 'lucide-react';
+import {
+  LayoutGrid,
+  LogOut,
+  Menu,
+  MessageCircle,
+  PackageCheck,
+  Search,
+  ShieldCheck,
+  ShoppingBag,
+  User,
+  X,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { buildWhatsappLink } from '../lib/format';
@@ -15,6 +26,9 @@ interface HeaderProps {
   storeName: string;
   whatsappNumber: string;
   currentView: AppView;
+  searchQuery: string;
+  onSearchChange: (nextQuery: string) => void;
+  onSearchSubmit: (query: string) => void;
   onNavigate: (view: AppView, authTab?: 'login' | 'register') => void;
   onOpenCart: () => void;
 }
@@ -23,6 +37,9 @@ export function Header({
   storeName,
   whatsappNumber,
   currentView,
+  searchQuery,
+  onSearchChange,
+  onSearchSubmit,
   onNavigate,
   onOpenCart,
 }: HeaderProps) {
@@ -37,122 +54,224 @@ export function Header({
     onNavigate(view, authTab);
   };
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearchSubmit(searchQuery.trim());
+  };
+
   return (
-    <header className="sticky top-0 z-40 border-b border-emerald-950/10 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-8 px-4 py-3.5 sm:px-6">
-        {/* Zona 1: Marca (elemento único em uma linha) */}
+    <header className="sticky top-0 z-40 w-full border-b border-emerald-950/10 bg-white/95 backdrop-blur-md shadow-[0_2px_12px_rgba(2,44,34,0.05)]">
+      {/* Faixa principal em largura total com logo à esquerda, busca grande ao centro e atalhos à direita */}
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:gap-8 lg:px-8">
+        {/* Zona 1: Logo + Identidade Agro Marconato à esquerda */}
         <button
           type="button"
           onClick={() => handleNav('catalog')}
-          className="cursor-pointer whitespace-nowrap shrink-0 text-left text-lg font-bold tracking-tight text-emerald-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800"
+          className="group flex shrink-0 cursor-pointer items-center gap-3 rounded-xl py-1 pr-2 text-left transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800"
         >
-          {storeName}
+          <img
+            src="/favicon.png"
+            alt={storeName}
+            className="h-11 w-11 rounded-full border border-emerald-950/15 object-cover shadow-sm transition-transform duration-300 group-hover:scale-105"
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-xl font-extrabold tracking-tight text-emerald-950 transition-colors group-hover:text-emerald-800 whitespace-nowrap">
+              {storeName}
+            </span>
+            <span className="hidden text-[11px] font-semibold uppercase tracking-wider text-emerald-800/80 sm:block whitespace-nowrap">
+              Agropecuária &amp; Pet · Irati-PR
+            </span>
+          </div>
         </button>
 
-        {/* Zona 2: Links de navegação concisos em uma linha */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-neutral-600">
-          <button
-            type="button"
-            onClick={() => handleNav('catalog')}
-            className={`cursor-pointer whitespace-nowrap shrink-0 transition-colors hover:text-emerald-900 ${
-              currentView === 'catalog'
-                ? 'text-emerald-950 underline underline-offset-4'
-                : ''
-            }`}
-          >
-            Catálogo
-          </button>
-          <button
-            type="button"
-            onClick={() => handleNav(user ? 'orders' : 'auth', 'login')}
-            className={`cursor-pointer whitespace-nowrap shrink-0 transition-colors hover:text-emerald-900 ${
-              currentView === 'orders'
-                ? 'text-emerald-950 underline underline-offset-4'
-                : ''
-            }`}
-          >
-            Meus Pedidos
-          </button>
-          <a
-            href={buildWhatsappLink(
-              whatsappNumber,
-              `Olá! Gostaria de falar com a ${storeName}.`
+        {/* Zona 2: Campo de pesquisa grande e visível no centro (Desktop) */}
+        <form
+          onSubmit={handleFormSubmit}
+          className="hidden md:flex flex-1 max-w-2xl items-center"
+          role="search"
+          aria-label="Buscar produtos no catálogo"
+        >
+          <div className="relative flex w-full items-center">
+            <Search className="pointer-events-none absolute left-4 h-5 w-5 text-emerald-900/60" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="O que você procura? Ex.: ração, enxada, cerca elétrica..."
+              aria-label="Pesquisar produtos"
+              className="h-12 w-full rounded-l-xl border-2 border-r-0 border-emerald-900/20 bg-neutral-50/70 pl-12 pr-10 text-[15px] text-neutral-900 placeholder:text-neutral-500 transition-colors focus:border-emerald-800 focus:bg-white focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                aria-label="Limpar busca"
+                className="absolute right-24 cursor-pointer rounded-full p-1 text-neutral-400 transition-colors hover:bg-neutral-200/70 hover:text-neutral-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whitespace-nowrap shrink-0 transition-colors hover:text-emerald-900"
+            <button
+              type="submit"
+              className="h-12 cursor-pointer rounded-r-xl bg-emerald-900 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-950 whitespace-nowrap"
+            >
+              Buscar
+            </button>
+          </div>
+        </form>
+
+        {/* Zona 3: Links animados com detalhes, Conta e Carrinho à direita */}
+        <div className="flex shrink-0 items-center gap-2 lg:gap-3">
+          {/* Links detalhados com animação no hover (Desktop) */}
+          <nav
+            aria-label="Navegação principal"
+            className="hidden xl:flex items-center gap-1"
           >
-            WhatsApp
-          </a>
-          {isAdmin && (
             <button
               type="button"
-              onClick={() => handleNav('admin')}
-              className={`cursor-pointer whitespace-nowrap shrink-0 transition-colors hover:text-emerald-900 ${
-                currentView === 'admin'
-                  ? 'text-emerald-950 underline underline-offset-4'
-                  : ''
+              onClick={() => handleNav('catalog')}
+              className={`group relative inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:text-emerald-950 whitespace-nowrap ${
+                currentView === 'catalog'
+                  ? 'bg-emerald-50/80 text-emerald-950'
+                  : 'text-neutral-700'
               }`}
             >
-              Painel Admin
+              <LayoutGrid className="h-4 w-4 text-emerald-800 transition-transform duration-200 group-hover:scale-110" />
+              <span>Catálogo</span>
+              <span
+                className={`absolute bottom-1 left-3 right-3 h-0.5 origin-left rounded-full bg-emerald-800 transition-transform duration-200 ${
+                  currentView === 'catalog'
+                    ? 'scale-x-100'
+                    : 'scale-x-0 group-hover:scale-x-100'
+                }`}
+              />
             </button>
-          )}
-        </nav>
 
-        {/* Zona 3: Ação principal + conta */}
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={onOpenCart}
-            className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg border border-emerald-950/15 bg-white px-3.5 py-2 text-sm font-medium text-emerald-950 transition-colors hover:bg-emerald-50 whitespace-nowrap shrink-0"
-            aria-label="Abrir carrinho"
-          >
-            <ShoppingBag className="h-4 w-4 text-emerald-900" />
-            <span>Carrinho</span>
-            <span className="font-mono tabular-nums text-xs font-semibold text-emerald-900">
-              ({totalUnitsInCart})
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleNav(user ? 'orders' : 'auth', 'login')}
+              className={`group relative inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:text-emerald-950 whitespace-nowrap ${
+                currentView === 'orders'
+                  ? 'bg-emerald-50/80 text-emerald-950'
+                  : 'text-neutral-700'
+              }`}
+            >
+              <PackageCheck className="h-4 w-4 text-emerald-800 transition-transform duration-200 group-hover:scale-110" />
+              <span>Meus Pedidos</span>
+              <span
+                className={`absolute bottom-1 left-3 right-3 h-0.5 origin-left rounded-full bg-emerald-800 transition-transform duration-200 ${
+                  currentView === 'orders'
+                    ? 'scale-x-100'
+                    : 'scale-x-0 group-hover:scale-x-100'
+                }`}
+              />
+            </button>
 
+            <a
+              href={buildWhatsappLink(
+                whatsappNumber,
+                `Olá! Gostaria de falar com a ${storeName}.`
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative inline-flex min-h-[42px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-neutral-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:text-emerald-950 whitespace-nowrap"
+            >
+              <MessageCircle className="h-4 w-4 text-emerald-700 transition-transform duration-200 group-hover:rotate-6 group-hover:scale-110" />
+              <span>WhatsApp</span>
+              <span className="absolute bottom-1 left-3 right-3 h-0.5 origin-left scale-x-0 rounded-full bg-emerald-800 transition-transform duration-200 group-hover:scale-x-100" />
+            </a>
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => handleNav('admin')}
+                className={`group relative inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:text-emerald-950 whitespace-nowrap ${
+                  currentView === 'admin'
+                    ? 'bg-emerald-50/80 text-emerald-950'
+                    : 'text-neutral-700'
+                }`}
+              >
+                <ShieldCheck className="h-4 w-4 text-emerald-800 transition-transform duration-200 group-hover:scale-110" />
+                <span>Painel Admin</span>
+                <span
+                  className={`absolute bottom-1 left-3 right-3 h-0.5 origin-left rounded-full bg-emerald-800 transition-transform duration-200 ${
+                    currentView === 'admin'
+                      ? 'scale-x-100'
+                      : 'scale-x-0 group-hover:scale-x-100'
+                  }`}
+                />
+              </button>
+            )}
+          </nav>
+
+          {/* Conta do cliente */}
           {user ? (
-            <div className="hidden md:flex items-center gap-3 shrink-0">
-              <span className="max-w-[140px] truncate text-sm font-medium text-neutral-700">
-                {user.fullName.split(' ')[0]}
-              </span>
+            <div className="hidden md:flex items-center gap-1.5 border-l border-neutral-200 pl-2">
+              <button
+                type="button"
+                onClick={() => handleNav(isAdmin ? 'admin' : 'orders')}
+                className="group inline-flex min-h-[42px] cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50"
+                title={user.fullName}
+              >
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-900/10 text-emerald-900 transition-colors group-hover:bg-emerald-900 group-hover:text-white">
+                  <User className="h-4 w-4" />
+                </span>
+                <span className="max-w-[110px] truncate text-sm font-semibold text-neutral-800">
+                  {user.fullName.split(' ')[0]}
+                </span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   logout();
                   handleNav('catalog');
                 }}
-                className="min-h-[40px] cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 whitespace-nowrap shrink-0"
+                aria-label="Sair da conta"
+                className="inline-flex min-h-[42px] cursor-pointer items-center gap-1 rounded-lg px-2.5 py-2 text-sm font-medium text-neutral-600 transition-all duration-200 hover:bg-red-50 hover:text-red-700 whitespace-nowrap"
               >
-                Sair
+                <LogOut className="h-4 w-4" />
+                <span className="hidden lg:inline">Sair</span>
               </button>
             </div>
           ) : (
-            <div className="hidden md:flex items-center gap-2 shrink-0">
+            <div className="hidden md:flex items-center gap-2 border-l border-neutral-200 pl-3">
               <button
                 type="button"
                 onClick={() => handleNav('auth', 'register')}
-                className="min-h-[40px] cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-emerald-950 transition-colors hover:bg-emerald-50 whitespace-nowrap shrink-0"
+                className="min-h-[42px] cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-emerald-950 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 whitespace-nowrap"
               >
                 Cadastrar
               </button>
               <button
                 type="button"
                 onClick={() => handleNav('auth', 'login')}
-                className="min-h-[40px] cursor-pointer rounded-lg bg-emerald-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-950 whitespace-nowrap shrink-0"
+                className="inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-950 hover:shadow whitespace-nowrap"
               >
-                Entrar
+                <User className="h-4 w-4" />
+                <span>Entrar</span>
               </button>
             </div>
           )}
 
+          {/* Carrinho em destaque */}
+          <button
+            type="button"
+            onClick={onOpenCart}
+            className="group inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border-2 border-emerald-900/20 bg-white px-4 py-2 text-sm font-bold text-emerald-950 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-900 hover:bg-emerald-50 hover:shadow-sm whitespace-nowrap shrink-0"
+            aria-label="Abrir carrinho"
+          >
+            <ShoppingBag className="h-4 w-4 text-emerald-900 transition-transform duration-200 group-hover:scale-110" />
+            <span className="hidden sm:inline">Carrinho</span>
+            <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-emerald-900 px-1.5 font-mono tabular-nums text-xs font-bold text-white transition-transform duration-200 group-hover:scale-105">
+              {totalUnitsInCart}
+            </span>
+          </button>
+
+          {/* Botão menu mobile / tablet */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-emerald-950/15 text-emerald-950 md:hidden"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-emerald-950/15 text-emerald-950 transition-colors hover:bg-emerald-50 xl:hidden"
             aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -160,23 +279,48 @@ export function Header({
         </div>
       </div>
 
-      {/* Menu Mobile */}
+      {/* Campo de pesquisa no mobile (sempre acessível logo no topo) */}
+      <div className="border-t border-neutral-100 px-4 py-2.5 md:hidden">
+        <form onSubmit={handleFormSubmit} className="flex w-full items-center">
+          <div className="relative flex w-full items-center">
+            <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-emerald-900/60" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Buscar produtos na Agro Marconato..."
+              aria-label="Pesquisar produtos"
+              className="h-11 w-full rounded-l-lg border border-r-0 border-neutral-300 bg-neutral-50 pl-10 pr-3 text-sm text-neutral-900 focus:border-emerald-800 focus:bg-white focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="h-11 cursor-pointer rounded-r-lg bg-emerald-900 px-4 text-xs font-bold text-white"
+            >
+              Buscar
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Menu Mobile / Tablet */}
       {mobileMenuOpen && (
-        <div className="border-t border-emerald-950/10 bg-white px-4 py-4 md:hidden">
-          <div className="flex flex-col gap-2">
+        <div className="border-t border-emerald-950/10 bg-white px-4 py-4 xl:hidden">
+          <div className="flex flex-col gap-1.5">
             <button
               type="button"
               onClick={() => handleNav('catalog')}
-              className="min-h-[44px] cursor-pointer rounded-lg px-3 text-left text-sm font-medium text-neutral-800 hover:bg-emerald-50"
+              className="flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-sm font-semibold text-neutral-800 hover:bg-emerald-50"
             >
-              Catálogo
+              <LayoutGrid className="h-4 w-4 text-emerald-800" />
+              <span>Catálogo</span>
             </button>
             <button
               type="button"
               onClick={() => handleNav(user ? 'orders' : 'auth', 'login')}
-              className="min-h-[44px] cursor-pointer rounded-lg px-3 text-left text-sm font-medium text-neutral-800 hover:bg-emerald-50"
+              className="flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-sm font-semibold text-neutral-800 hover:bg-emerald-50"
             >
-              Meus Pedidos
+              <PackageCheck className="h-4 w-4 text-emerald-800" />
+              <span>Meus Pedidos</span>
             </button>
             <a
               href={buildWhatsappLink(
@@ -185,23 +329,25 @@ export function Header({
               )}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium text-neutral-800 hover:bg-emerald-50"
+              className="flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 text-sm font-semibold text-neutral-800 hover:bg-emerald-50"
             >
-              WhatsApp
+              <MessageCircle className="h-4 w-4 text-emerald-800" />
+              <span>WhatsApp</span>
             </a>
             {isAdmin && (
               <button
                 type="button"
                 onClick={() => handleNav('admin')}
-                className="min-h-[44px] cursor-pointer rounded-lg px-3 text-left text-sm font-medium text-emerald-900 hover:bg-emerald-50"
+                className="flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
               >
-                Painel Admin
+                <ShieldCheck className="h-4 w-4 text-emerald-800" />
+                <span>Painel Admin</span>
               </button>
             )}
-            <div className="mt-2 border-t border-neutral-200 pt-3">
+            <div className="mt-2 border-t border-neutral-200 pt-3 md:hidden">
               {user ? (
                 <div className="flex items-center justify-between px-3">
-                  <span className="text-sm font-medium text-neutral-700">
+                  <span className="text-sm font-semibold text-neutral-800">
                     {user.fullName}
                   </span>
                   <button
@@ -210,7 +356,7 @@ export function Header({
                       logout();
                       handleNav('catalog');
                     }}
-                    className="min-h-[40px] cursor-pointer rounded-lg px-3 text-sm font-medium text-red-700 hover:bg-red-50"
+                    className="min-h-[40px] cursor-pointer rounded-lg px-3 text-sm font-semibold text-red-700 hover:bg-red-50"
                   >
                     Sair
                   </button>

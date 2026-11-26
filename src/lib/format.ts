@@ -1,4 +1,7 @@
-import type { OrderPayment } from '../types';
+import type { OrderPayment, OrderRecord, Product } from '../types';
+
+export const PICKUP_NOTICE_TEXT =
+  'Você tem até 7 dias para retirar seu pedido na loja.';
 
 export function formatCurrency(value: number | string | null | undefined): string {
   const num = Number(value ?? 0);
@@ -147,6 +150,59 @@ export function formatPaymentSummary(
     extras,
     note: details.note || null,
   };
+}
+
+export function formatDeliveryModeInfo(order: OrderRecord): {
+  isPickup: boolean;
+  label: string;
+  detail: string;
+} {
+  const payment = Array.isArray(order.payments)
+    ? order.payments[0]
+    : order.payments;
+  const isPickup =
+    order.delivery_mode === 'pickup' ||
+    payment?.details?.deliveryMode === 'pickup';
+
+  if (isPickup) {
+    return {
+      isPickup: true,
+      label: 'Retirar na loja',
+      detail:
+        payment?.details?.pickupNotice ||
+        PICKUP_NOTICE_TEXT,
+    };
+  }
+
+  const addressLine = `${order.shipping_street}, ${order.shipping_number}${
+    order.shipping_complement ? ` (${order.shipping_complement})` : ''
+  } — ${order.shipping_neighborhood}, ${order.shipping_city}/${order.shipping_state} · CEP ${order.shipping_cep}`;
+
+  return {
+    isPickup: false,
+    label: 'Entrega no endereço',
+    detail: addressLine,
+  };
+}
+
+export function formatProductCategories(
+  product: Pick<Product, 'category' | 'additional_categories' | 'subcategory'>
+): string[] {
+  const labels: string[] = [];
+  const pushUnique = (val: string | null | undefined) => {
+    const clean = (val || '').trim();
+    if (clean && !labels.includes(clean)) {
+      labels.push(clean);
+    }
+  };
+  pushUnique(product.category);
+  if (Array.isArray(product.additional_categories)) {
+    for (const extra of product.additional_categories) {
+      pushUnique(extra);
+    }
+  }
+  pushUnique(product.subcategory);
+  return labels;
 }
 
 export function isValidCpfClient(raw: string): boolean {

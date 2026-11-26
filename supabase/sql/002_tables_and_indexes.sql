@@ -35,6 +35,8 @@ create table if not exists public.products (
   name text not null check (char_length(trim(name)) >= 2),
   description text not null check (char_length(trim(description)) >= 5),
   category text,
+  additional_categories text[] not null default '{}',
+  subcategory text,
   image_url text,
   image_path text,
   sale_type public.sale_type not null default 'unit',
@@ -71,6 +73,8 @@ create table if not exists public.products (
 
 create index if not exists idx_products_active_sort on public.products(is_active, sort_price);
 create index if not exists idx_products_category on public.products(category) where is_active = true;
+create index if not exists idx_products_additional_categories on public.products using gin (additional_categories);
+create index if not exists idx_products_subcategory on public.products(subcategory) where is_active = true;
 
 create table if not exists public.addresses (
   id uuid primary key default gen_random_uuid(),
@@ -115,6 +119,7 @@ create table if not exists public.orders (
   user_id uuid not null references public.profiles(id) on delete restrict,
   idempotency_key text not null,
   status public.order_status not null default 'pending_payment',
+  delivery_mode text not null default 'delivery' check (delivery_mode in ('delivery', 'pickup')),
   subtotal numeric(10,2) not null check (subtotal >= 0),
   shipping_fee numeric(10,2) not null check (shipping_fee >= 0),
   total numeric(10,2) not null check (total >= 0),

@@ -59,21 +59,42 @@ router.get('/products', async (req, res) => {
     const search = String(req.query.search || '').trim();
     const supabase = getSupabaseAdmin();
 
-    let query = supabase
-      .from('products')
-      .select(
-        'id, name, description, category, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
-      )
-      .order('created_at', { ascending: false });
+    const runList = (extended: boolean) => {
+      let query = extended
+        ? supabase
+            .from('products')
+            .select(
+              'id, name, description, category, additional_categories, subcategory, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
+            )
+            .order('created_at', { ascending: false })
+        : supabase
+            .from('products')
+            .select(
+              'id, name, description, category, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
+            )
+            .order('created_at', { ascending: false });
 
-    if (search.length > 0) {
-      const safe = search.replace(/[,%()]/g, ' ').trim();
-      if (safe.length > 0) {
-        query = query.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`);
+      if (search.length > 0) {
+        const safe = search.replace(/[,%()]/g, ' ').trim();
+        if (safe.length > 0) {
+          query = query.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`);
+        }
       }
+      return query;
+    };
+
+    let { data, error } = await runList(true);
+    if (
+      error &&
+      (error.message?.includes('additional_categories') ||
+        error.message?.includes('subcategory') ||
+        error.code === '42703')
+    ) {
+      const legacy = await runList(false);
+      data = legacy.data;
+      error = legacy.error;
     }
 
-    const { data, error } = await query;
     if (error) {
       res.status(500).json({ error: 'Erro ao listar produtos no painel.' });
       return;
@@ -148,28 +169,56 @@ router.post('/products', async (req, res) => {
 
     const p = parsed.data;
     const supabase = getSupabaseAdmin();
+    const primaryCat = p.category?.trim() || null;
+    const cleanAdditional = Array.from(
+      new Set(
+        (p.additionalCategories || [])
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0 && c !== primaryCat)
+      )
+    );
+    const cleanSub = p.subcategory?.trim() || null;
 
-    const { data: product, error } = await supabase
+    const basePayload = {
+      name: p.name,
+      description: p.description,
+      category: primaryCat,
+      image_url: p.imageUrl || null,
+      image_path: p.imagePath || null,
+      sale_type: p.saleType,
+      price_unit: p.saleType === 'kg' ? null : p.priceUnit ?? null,
+      promo_price_unit: p.saleType === 'kg' ? null : p.promoPriceUnit ?? null,
+      price_kg: p.saleType === 'unit' ? null : p.priceKg ?? null,
+      promo_price_kg: p.saleType === 'unit' ? null : p.promoPriceKg ?? null,
+      manage_stock: p.manageStock,
+      stock_quantity: p.manageStock ? p.stockQuantity ?? 0 : null,
+      is_active: p.isActive,
+    };
+
+    let { data: product, error } = await supabase
       .from('products')
       .insert({
-        name: p.name,
-        description: p.description,
-        category: p.category || null,
-        image_url: p.imageUrl || null,
-        image_path: p.imagePath || null,
-        sale_type: p.saleType,
-        price_unit: p.saleType === 'kg' ? null : p.priceUnit ?? null,
-        promo_price_unit:
-          p.saleType === 'kg' ? null : p.promoPriceUnit ?? null,
-        price_kg: p.saleType === 'unit' ? null : p.priceKg ?? null,
-        promo_price_kg:
-          p.saleType === 'unit' ? null : p.promoPriceKg ?? null,
-        manage_stock: p.manageStock,
-        stock_quantity: p.manageStock ? p.stockQuantity ?? 0 : null,
-        is_active: p.isActive,
+        ...basePayload,
+        additional_categories: cleanAdditional,
+        subcategory: cleanSub,
       })
       .select('*')
       .single();
+
+    if (
+      error &&
+      (error.message?.includes('additional_categories') ||
+        error.message?.includes('subcategory') ||
+        error.code === '42703')
+    ) {
+      const legacy = await supabase
+        .from('products')
+        .insert(basePayload)
+        .select('*')
+        .single();
+      product = legacy.data;
+      error = legacy.error;
+    }
 
     if (error) {
       res.status(400).json({ error: 'Não foi possível cadastrar o produto.' });
@@ -195,29 +244,58 @@ router.patch('/products/:id', async (req, res) => {
     const productId = req.params.id;
     const p = parsed.data;
     const supabase = getSupabaseAdmin();
+    const primaryCat = p.category?.trim() || null;
+    const cleanAdditional = Array.from(
+      new Set(
+        (p.additionalCategories || [])
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0 && c !== primaryCat)
+      )
+    );
+    const cleanSub = p.subcategory?.trim() || null;
 
-    const { data: product, error } = await supabase
+    const basePayload = {
+      name: p.name,
+      description: p.description,
+      category: primaryCat,
+      image_url: p.imageUrl || null,
+      image_path: p.imagePath || null,
+      sale_type: p.saleType,
+      price_unit: p.saleType === 'kg' ? null : p.priceUnit ?? null,
+      promo_price_unit: p.saleType === 'kg' ? null : p.promoPriceUnit ?? null,
+      price_kg: p.saleType === 'unit' ? null : p.priceKg ?? null,
+      promo_price_kg: p.saleType === 'unit' ? null : p.promoPriceKg ?? null,
+      manage_stock: p.manageStock,
+      stock_quantity: p.manageStock ? p.stockQuantity ?? 0 : null,
+      is_active: p.isActive,
+    };
+
+    let { data: product, error } = await supabase
       .from('products')
       .update({
-        name: p.name,
-        description: p.description,
-        category: p.category || null,
-        image_url: p.imageUrl || null,
-        image_path: p.imagePath || null,
-        sale_type: p.saleType,
-        price_unit: p.saleType === 'kg' ? null : p.priceUnit ?? null,
-        promo_price_unit:
-          p.saleType === 'kg' ? null : p.promoPriceUnit ?? null,
-        price_kg: p.saleType === 'unit' ? null : p.priceKg ?? null,
-        promo_price_kg:
-          p.saleType === 'unit' ? null : p.promoPriceKg ?? null,
-        manage_stock: p.manageStock,
-        stock_quantity: p.manageStock ? p.stockQuantity ?? 0 : null,
-        is_active: p.isActive,
+        ...basePayload,
+        additional_categories: cleanAdditional,
+        subcategory: cleanSub,
       })
       .eq('id', productId)
       .select('*')
       .single();
+
+    if (
+      error &&
+      (error.message?.includes('additional_categories') ||
+        error.message?.includes('subcategory') ||
+        error.code === '42703')
+    ) {
+      const legacy = await supabase
+        .from('products')
+        .update(basePayload)
+        .eq('id', productId)
+        .select('*')
+        .single();
+      product = legacy.data;
+      error = legacy.error;
+    }
 
     if (error || !product) {
       res.status(404).json({ error: 'Produto não encontrado ou inválido.' });
@@ -294,18 +372,34 @@ router.get('/orders', async (req, res) => {
     const status = String(req.query.status || '').trim();
     const supabase = getSupabaseAdmin();
 
-    let query = supabase
-      .from('orders')
-      .select(
-        'id, order_number, user_id, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, customer_name, customer_cpf, customer_phone, notes, created_at, updated_at, order_items(id, product_id, product_name, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, provider_reference, details)'
-      )
-      .order('created_at', { ascending: false });
+    const runOrders = (withDeliveryMode: boolean) => {
+      let query = withDeliveryMode
+        ? supabase
+            .from('orders')
+            .select(
+              'id, order_number, user_id, status, delivery_mode, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, customer_name, customer_cpf, customer_phone, notes, created_at, updated_at, order_items(id, product_id, product_name, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, provider_reference, details)'
+            )
+            .order('created_at', { ascending: false })
+        : supabase
+            .from('orders')
+            .select(
+              'id, order_number, user_id, status, subtotal, shipping_fee, total, shipping_cep, shipping_street, shipping_number, shipping_complement, shipping_neighborhood, shipping_city, shipping_state, customer_name, customer_cpf, customer_phone, notes, created_at, updated_at, order_items(id, product_id, product_name, unit_mode, quantity, unit_price, line_total), payments(id, method, status, amount, provider, provider_reference, details)'
+            )
+            .order('created_at', { ascending: false });
 
-    if (status) {
-      query = query.eq('status', status);
+      if (status) {
+        query = query.eq('status', status);
+      }
+      return query;
+    };
+
+    let { data, error } = await runOrders(true);
+    if (error && (error.message?.includes('delivery_mode') || error.code === '42703')) {
+      const legacy = await runOrders(false);
+      data = legacy.data;
+      error = legacy.error;
     }
 
-    const { data, error } = await query;
     if (error) {
       res.status(500).json({ error: 'Não foi possível consultar pedidos.' });
       return;

@@ -2,7 +2,11 @@ import { Star, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
-import { formatCurrency, formatDateTime } from '../lib/format';
+import {
+  formatCurrency,
+  formatDateTime,
+  formatProductCategories,
+} from '../lib/format';
 import type { Product, ProductReview, UnitMode } from '../types';
 import { ProductImage } from './ProductImage';
 
@@ -164,10 +168,11 @@ export function ProductDetailModal({
               <div className="flex flex-col justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                    {product.category && <span>{product.category}</span>}
-                    {product.category && product.is_promo && (
-                      <span aria-hidden="true">·</span>
+                    {formatProductCategories(product).length > 0 && (
+                      <span>{formatProductCategories(product).join(' · ')}</span>
                     )}
+                    {formatProductCategories(product).length > 0 &&
+                      product.is_promo && <span aria-hidden="true">·</span>}
                     {product.is_promo && (
                       <span className="font-semibold text-emerald-800">
                         Em promoção

@@ -38,6 +38,7 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 4. `supabase/sql/004_rls_policies.sql`
 5. `supabase/sql/005_storage_setup.sql`
 6. `supabase/sql/006_payment_methods_and_webhook.sql` (para bancos já criados anteriormente, adiciona `credit_card`, `debit_card`, `cash_on_delivery` e suporte a detalhes de entrega/parcelamento/webhook sem apagar nenhum registro)
+7. `supabase/sql/007_categories_and_pickup.sql` (para bancos já criados anteriormente, adiciona `additional_categories` e `subcategory` em `products`, garante as 4 categorias principais e adiciona `delivery_mode` `'delivery'` / `'pickup'` em `orders` e `create_order_atomic` sem apagar nenhum dado existente)
 
 > O script `005_storage_setup.sql` cria automaticamente o bucket público `product-images` com limite de 4 MB e permissão de envio restrita a administradores.
 
@@ -110,7 +111,7 @@ No painel do Supabase, abra **SQL Editor** -> **New query** e execute os arquivo
 
 ## 7. Checklist de Testes Recomendados
 
-1. **Catálogo público:** Navegar deslogado, buscar por nome/descrição, filtrar por categoria e promoção, alternar ordenação menor/maior preço e testar paginação (20 itens/página).
+1. **Catálogo público:** Navegar deslogado, usar o menu de Departamentos/Subcategorias, buscar por nome/descrição, filtrar por departamento/subcategoria/promoção, alternar ordenação menor/maior preço e testar paginação (25 itens/página).
 2. **Bloqueio de carrinho deslogado:** Tentar adicionar produto sem login, verificar mensagem obrigatória e botões **Entrar** / **Criar uma conta**, concluir login e confirmar que o item foi preservado e adicionado automaticamente.
 3. **Cadastro e CPF:** Testar CPF inválido, senha fraca e cadastro válido de cliente.
 4. **Isolamento multiusuário:** Abrir dois navegadores ou abas diferentes com Cliente A e Cliente B logados simultaneamente; adicionar itens distintos e confirmar que carrinhos e pedidos nunca se misturam.
