@@ -1,5 +1,5 @@
-import { Pencil, Plus, Trash2, Upload, UserPlus } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Plus, RefreshCw, Trash2, Upload, UserPlus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ANIMAL_SUBCATEGORIES,
   MAIN_CATEGORIES,
@@ -56,7 +56,12 @@ export function AdminView() {
   const [pImageUrl, setPImageUrl] = useState('');
   const [pImagePath, setPImagePath] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [pendingRetryFile, setPendingRetryFile] = useState<File | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [previewLoadError, setPreviewLoadError] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Pedidos
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -158,7 +163,29 @@ export function AdminView() {
     );
   };
 
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) {
+        URL.revokeObjectURL(localPreviewUrl);
+      }
+    };
+  }, [localPreviewUrl]);
+
+  const clearPendingImageSelection = () => {
+    if (localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+    setLocalPreviewUrl(null);
+    setPendingRetryFile(null);
+    setImageUploadError(null);
+    setPreviewLoadError(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const openNewProductForm = () => {
+    clearPendingImageSelection();
     setEditingProduct(null);
     setPName('');
     setPDesc('');
@@ -182,6 +209,7 @@ export function AdminView() {
   };
 
   const openEditProductForm = (prod: Product) => {
+    clearPendingImageSelection();
     const primary = prod.category || MAIN_CATEGORIES[0];
     const knownSubs = new Set<string>([
       ...getDepartmentSubcategories(primary),
@@ -227,11 +255,53 @@ export function AdminView() {
     setShowProductForm(true);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const validateSelectedImageFile = (file: File): string | null => {
+    const allowedExt = new Set(['jpg', 'jpeg', 'png', 'webp']);
+    const allowedMime = new Set([
+      'image/jpeg',
+      'image/jpg',
+      'image/pjpeg',
+      'image/png',
+      'image/webp',
+    ]);
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const mime = (file.type || '').toLowerCase();
+
+    const validExt = allowedExt.has(ext);
+    const validMime = mime ? allowedMime.has(mime) : validExt;
+
+    if (!validExt && !validMime) {
+      return 'Formato inválido. Selecione uma imagem JPG, JPEG, PNG ou WebP.';
+    }
+    if (file.size <= 0) {
+      return 'O arquivo selecionado está vazio. Escolha uma imagem válida.';
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      return 'A imagem excede o limite de 4 MB. Escolha um arquivo menor.';
+    }
+    return null;
+  };
+
+  const uploadProductImageFile = async (file: File) => {
     setProductError(null);
+    setImageUploadError(null);
+    setPreviewLoadError(false);
+
+    const validationError = validateSelectedImageFile(file);
+    if (validationError) {
+      setPendingRetryFile(null);
+      setImageUploadError(validationError);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    if (localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+    setLocalPreviewUrl(previewUrl);
+    setPendingRetryFile(file);
     setUploadingImage(true);
+
     try {
       const formData = new FormData();
       formData.append('image', file);
@@ -243,21 +313,53 @@ export function AdminView() {
           body: formData,
         }
       );
+      if (!res.imageUrl || !res.imagePath) {
+        throw new Error('O servidor não retornou o endereço da imagem enviada.');
+      }
       setPImageUrl(res.imageUrl);
       setPImagePath(res.imagePath);
+      setPendingRetryFile(null);
+      setImageUploadError(null);
+      if (localPreviewUrl) {
+        URL.revokeObjectURL(localPreviewUrl);
+      }
+      setLocalPreviewUrl(null);
     } catch (err) {
-      setProductError(
-        err instanceof Error ? err.message : 'Erro ao enviar imagem.'
+      setImageUploadError(
+        err instanceof Error
+          ? err.message
+          : 'Erro ao enviar imagem para o servidor.'
       );
     } finally {
       setUploadingImage(false);
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await uploadProductImageFile(file);
+  };
+
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setProductError(null);
     setProductSuccess(null);
+
+    if (uploadingImage) {
+      setProductError(
+        'Aguarde a conclusão do envio da imagem antes de salvar o produto.'
+      );
+      return;
+    }
+
+    if (imageUploadError) {
+      setProductError(
+        'O envio da nova imagem falhou. Clique em "Tentar novamente" ou descarte a nova imagem para continuar.'
+      );
+      return;
+    }
 
     if (!pCategory.trim()) {
       setProductError('Selecione a categoria principal do produto.');
@@ -649,40 +751,113 @@ export function AdminView() {
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-800">
-                    Imagem do produto (envio direto para Supabase Storage)
+                    Imagem do produto (JPG, JPEG, PNG ou WebP até 4 MB)
                   </label>
-                  <div className="mt-1 flex items-center gap-3">
+                  <div className="mt-1 flex flex-wrap items-center gap-3">
                     <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-emerald-900 bg-white px-4 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50">
                       <Upload className="h-4 w-4" />
-                      {uploadingImage ? 'Enviando...' : 'Escolher arquivo'}
+                      {uploadingImage
+                        ? 'Enviando imagem...'
+                        : pImageUrl
+                          ? 'Trocar imagem'
+                          : 'Escolher arquivo'}
                       <input
+                        ref={fileInputRef}
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept=".jpg,.jpeg,.png,.webp,.JPG,.JPEG,.PNG,.WEBP,image/jpeg,image/png,image/webp"
                         onChange={handleImageUpload}
                         className="sr-only"
                       />
                     </label>
-                    {pImageUrl && (
-                      <div className="flex items-center gap-2">
+
+                    {(localPreviewUrl || pImageUrl) && (
+                      <div className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5">
                         <img
-                          src={pImageUrl}
-                          alt="Pré-visualização"
+                          src={localPreviewUrl || pImageUrl}
+                          alt="Pré-visualização do produto"
                           referrerPolicy="no-referrer"
-                          className="h-11 w-14 rounded-md border border-neutral-200 object-cover"
+                          onLoad={() => setPreviewLoadError(false)}
+                          onError={() => setPreviewLoadError(true)}
+                          className="h-12 w-12 rounded-md border border-neutral-200 bg-white object-contain p-0.5"
                         />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPImageUrl('');
-                            setPImagePath('');
-                          }}
-                          className="cursor-pointer text-xs font-medium text-red-700 hover:underline"
-                        >
-                          Remover
-                        </button>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[11px] font-semibold text-neutral-700">
+                            {uploadingImage
+                              ? 'Enviando...'
+                              : imageUploadError
+                                ? 'Falha no envio'
+                                : pImageUrl
+                                  ? 'Imagem pronta'
+                                  : 'Pré-visualização'}
+                          </span>
+                          {pImageUrl && !uploadingImage && !imageUploadError && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPImageUrl('');
+                                setPImagePath('');
+                                clearPendingImageSelection();
+                              }}
+                              className="cursor-pointer text-left text-[11px] font-medium text-red-700 hover:underline"
+                            >
+                              Remover imagem
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
+
+                  {previewLoadError && (localPreviewUrl || pImageUrl) && (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <span>
+                        Não foi possível carregar a pré-visualização da imagem.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewLoadError(false);
+                          if (pendingRetryFile) {
+                            uploadProductImageFile(pendingRetryFile);
+                          }
+                        }}
+                        className="inline-flex cursor-pointer items-center gap-1 font-bold underline"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Tentar novamente
+                      </button>
+                    </div>
+                  )}
+
+                  {imageUploadError && (
+                    <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+                      <p className="font-semibold">{imageUploadError}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        {pendingRetryFile && (
+                          <button
+                            type="button"
+                            disabled={uploadingImage}
+                            onClick={() =>
+                              uploadProductImageFile(pendingRetryFile)
+                            }
+                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-800 hover:bg-red-100"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Tentar novamente
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={clearPendingImageSelection}
+                          className="cursor-pointer font-semibold text-neutral-700 underline hover:text-neutral-900"
+                        >
+                          {pImageUrl
+                            ? 'Manter imagem atual'
+                            : 'Descartar seleção'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {(pSaleType === 'unit' || pSaleType === 'both') && (
@@ -795,7 +970,10 @@ export function AdminView() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowProductForm(false)}
+                  onClick={() => {
+                    clearPendingImageSelection();
+                    setShowProductForm(false);
+                  }}
                   className="min-h-[42px] cursor-pointer rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700"
                 >
                   Cancelar

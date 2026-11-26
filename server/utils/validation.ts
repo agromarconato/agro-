@@ -204,7 +204,16 @@ export const productUpsertSchema = z
     imageUrl: z
       .string()
       .trim()
-      .url('URL da imagem inválida.')
+      .refine((val) => {
+        if (!val) return true;
+        if (val.startsWith('/')) return !val.startsWith('//');
+        try {
+          const parsed = new URL(val);
+          return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+        } catch {
+          return false;
+        }
+      }, 'URL da imagem inválida.')
       .optional()
       .nullable()
       .or(z.literal('')),

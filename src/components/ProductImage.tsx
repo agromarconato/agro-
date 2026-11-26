@@ -1,5 +1,5 @@
 import { Package } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ProductImageProps {
   src: string | null | undefined;
@@ -16,16 +16,20 @@ export function ProductImage({
 }: ProductImageProps) {
   const [failed, setFailed] = useState(false);
 
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
   if (!src || failed) {
     return (
       <div
-        className={`flex flex-col items-center justify-center bg-emerald-950/[0.04] text-emerald-900/50 ${className}`}
+        className={`flex flex-col items-center justify-center bg-neutral-50 text-emerald-900/45 ${className}`}
         role="img"
         aria-label={alt}
       >
         <Package className="h-11 w-11 stroke-[1.5]" />
-        <span className="mt-2 px-4 text-center text-xs font-medium text-emerald-950/60 line-clamp-1">
-          {alt}
+        <span className="mt-2 px-4 text-center text-xs font-medium text-neutral-500 line-clamp-2">
+          {failed ? 'Imagem indisponível' : alt}
         </span>
       </div>
     );
@@ -35,6 +39,7 @@ export function ProductImage({
     <img
       src={src}
       alt={alt}
+      loading="lazy"
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
       className={`${fit === 'contain' ? 'object-contain p-2' : 'object-cover'} ${className}`}

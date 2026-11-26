@@ -1,6 +1,7 @@
 import {
   ChevronLeft,
   ChevronRight,
+  ShoppingCart,
   SlidersHorizontal,
   Star,
   X,
@@ -14,7 +15,12 @@ import {
 import { DepartmentNav } from '../components/DepartmentNav';
 import { ProductImage } from '../components/ProductImage';
 import { apiFetch } from '../lib/api';
-import { formatCurrency, formatProductCategories } from '../lib/format';
+import {
+  formatCurrency,
+  formatProductCategories,
+  getProductDiscountBadge,
+  getProductReviewDisplay,
+} from '../lib/format';
 import type { Product, StoreConfig, UnitMode } from '../types';
 
 const DEFAULT_HERO_IMAGE = '/assets/hero-agromarconato.png';
@@ -606,11 +612,11 @@ export function CatalogView({
 
               {/* Estado de carregamento e erro */}
               {loading && (
-                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                   {Array.from({ length: 10 }).map((_, idx) => (
                     <div
                       key={idx}
-                      className="h-[400px] animate-pulse rounded-xl border border-neutral-200 bg-neutral-100"
+                      className="h-[430px] animate-pulse rounded-2xl border border-neutral-200 bg-neutral-100"
                     />
                   ))}
                 </div>
@@ -646,7 +652,7 @@ export function CatalogView({
 
               {/* Grade de produtos: 5 colunas em desktop (xl:grid-cols-5), até 25 por página */}
               {!loading && !error && catalog.products.length > 0 && (
-                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                   {catalog.products.map((product) => {
                     const hasPromoUnit =
                       product.promo_price_unit !== null &&
@@ -657,6 +663,9 @@ export function CatalogView({
                       product.promo_price_kg !== null &&
                       product.price_kg !== null &&
                       Number(product.promo_price_kg) < Number(product.price_kg);
+
+                    const discountBadge = getProductDiscountBadge(product);
+                    const reviewDisplay = getProductReviewDisplay(product);
 
                     const defaultUnitMode: UnitMode =
                       product.sale_type === 'kg' ? 'kg' : 'unit';
@@ -670,13 +679,19 @@ export function CatalogView({
                     return (
                       <article
                         key={product.id}
-                        className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-emerald-900/30 hover:shadow-lg"
+                        className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-900/30 hover:shadow-[0_14px_30px_rgba(2,44,34,0.10)]"
                       >
                         <button
                           type="button"
                           onClick={() => onSelectProduct(product.id)}
-                          className="relative aspect-square w-full cursor-pointer overflow-hidden border-b border-neutral-100 bg-white text-left"
+                          aria-label={`Ver detalhes de ${product.name}`}
+                          className="relative aspect-square w-full cursor-pointer overflow-hidden border-b border-neutral-100 bg-neutral-50/70 p-3 text-left"
                         >
+                          {discountBadge.hasDiscount && discountBadge.label && (
+                            <span className="absolute top-3 left-3 z-10 rounded-lg bg-emerald-900 px-2.5 py-1 font-mono text-xs font-extrabold tracking-tight text-white shadow-sm">
+                              {discountBadge.label}
+                            </span>
+                          )}
                           <ProductImage
                             src={product.image_url}
                             alt={product.name}
@@ -685,86 +700,72 @@ export function CatalogView({
                           />
                         </button>
 
-                        <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
+                        <div className="flex flex-1 flex-col justify-between p-4">
                           <div>
-                            <div className="flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
-                              {categoryLabels.length > 0 && (
-                                <span className="font-medium text-neutral-600">
-                                  {categoryLabels.join(' · ')}
-                                </span>
-                              )}
-                              {categoryLabels.length > 0 && product.is_promo && (
-                                <span aria-hidden="true">·</span>
-                              )}
-                              {product.is_promo && (
-                                <span className="font-bold text-emerald-800">
-                                  Promoção
-                                </span>
-                              )}
-                              {product.avg_rating !== null &&
-                                product.avg_rating !== undefined && (
-                                  <>
-                                    <span aria-hidden="true">·</span>
-                                    <span className="inline-flex items-center gap-1 font-medium text-neutral-700">
-                                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                                      {product.avg_rating}
-                                    </span>
-                                  </>
-                                )}
-                            </div>
+                            {categoryLabels.length > 0 && (
+                              <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-emerald-800/80">
+                                {categoryLabels.join(' · ')}
+                              </p>
+                            )}
 
                             <button
                               type="button"
                               onClick={() => onSelectProduct(product.id)}
-                              className="mt-2 cursor-pointer text-left text-[16px] font-bold leading-snug text-neutral-900 line-clamp-2 hover:text-emerald-900"
+                              className="mt-1.5 cursor-pointer text-left text-[15px] font-bold leading-snug text-neutral-900 line-clamp-3 min-h-[3.9rem] transition-colors hover:text-emerald-900"
                             >
                               {product.name}
                             </button>
 
-                            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-neutral-600">
-                              {product.description}
-                            </p>
+                            {reviewDisplay.show &&
+                              reviewDisplay.avgRating !== null && (
+                                <div
+                                  className="mt-2 flex items-center gap-1.5"
+                                  aria-label={`Avaliação ${reviewDisplay.avgRating} de 5 (${reviewDisplay.reviewCount} avaliações)`}
+                                >
+                                  <div className="flex items-center gap-0.5">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`h-3.5 w-3.5 ${
+                                          i <
+                                          Math.round(reviewDisplay.avgRating!)
+                                            ? 'fill-amber-500 text-amber-500'
+                                            : 'fill-neutral-200 text-neutral-200'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-xs font-semibold text-neutral-700">
+                                    {reviewDisplay.avgRating}
+                                  </span>
+                                  <span className="text-xs text-neutral-500">
+                                    ({reviewDisplay.reviewCount})
+                                  </span>
+                                </div>
+                              )}
                           </div>
 
-                          <div className="mt-4 border-t border-neutral-100 pt-4">
-                            <p
-                              className={`mb-2 text-xs font-semibold ${
-                                outOfStock
-                                  ? 'text-red-700'
-                                  : 'text-emerald-800'
-                              }`}
-                            >
-                              {outOfStock
-                                ? 'Indisponível no estoque'
-                                : product.manage_stock
-                                  ? `Disponível (${product.stock_quantity} ${
-                                      product.sale_type === 'kg' ? 'kg' : 'un'
-                                    })`
-                                  : 'Disponível'}
-                            </p>
-
-                            <div className="space-y-1.5">
+                          <div className="mt-4 border-t border-neutral-100 pt-3.5">
+                            <div className="space-y-2">
                               {(product.sale_type === 'unit' ||
                                 product.sale_type === 'both') &&
                                 product.price_unit !== null && (
                                   <div className="flex flex-col">
-                                    <span className="text-xs text-neutral-500">
+                                    <span className="text-[11px] font-medium text-neutral-500">
                                       Por unidade
                                     </span>
-                                    <div className="flex items-baseline gap-2">
-                                      {hasPromoUnit && (
-                                        <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
-                                          {formatCurrency(product.price_unit)}
-                                        </span>
-                                      )}
-                                      <span className="font-mono tabular-nums text-xl font-extrabold text-emerald-900">
-                                        {formatCurrency(
-                                          hasPromoUnit
-                                            ? product.promo_price_unit
-                                            : product.price_unit
-                                        )}
+                                    {hasPromoUnit && (
+                                      <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
+                                        {formatCurrency(product.price_unit)}
                                       </span>
-                                    </div>
+                                    )}
+                                    <span className="font-mono tabular-nums text-[22px] font-extrabold leading-tight text-emerald-900">
+                                      {formatCurrency(
+                                        hasPromoUnit
+                                          ? product.promo_price_unit
+                                          : product.price_unit
+                                      )}
+                                    </span>
                                   </div>
                                 )}
 
@@ -772,44 +773,61 @@ export function CatalogView({
                                 product.sale_type === 'both') &&
                                 product.price_kg !== null && (
                                   <div className="flex flex-col">
-                                    <span className="text-xs text-neutral-500">
+                                    <span className="text-[11px] font-medium text-neutral-500">
                                       Por quilo
                                     </span>
-                                    <div className="flex items-baseline gap-2">
-                                      {hasPromoKg && (
-                                        <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
-                                          {formatCurrency(product.price_kg)}
-                                        </span>
-                                      )}
-                                      <span className="font-mono tabular-nums text-xl font-extrabold text-emerald-900">
-                                        {formatCurrency(
-                                          hasPromoKg
-                                            ? product.promo_price_kg
-                                            : product.price_kg
-                                        )}
+                                    {hasPromoKg && (
+                                      <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
+                                        {formatCurrency(product.price_kg)}
                                       </span>
-                                    </div>
+                                    )}
+                                    <span className="font-mono tabular-nums text-[22px] font-extrabold leading-tight text-emerald-900">
+                                      {formatCurrency(
+                                        hasPromoKg
+                                          ? product.promo_price_kg
+                                          : product.price_kg
+                                      )}
+                                    </span>
                                   </div>
                                 )}
                             </div>
 
-                            <div className="mt-4 flex flex-col gap-2">
+                            <p
+                              className={`mt-2.5 text-xs font-semibold ${
+                                outOfStock
+                                  ? 'text-red-700'
+                                  : 'text-emerald-800'
+                              }`}
+                            >
+                              {outOfStock
+                                ? 'Sem estoque no momento'
+                                : product.manage_stock
+                                  ? `Em estoque (${product.stock_quantity} ${
+                                      product.sale_type === 'kg' ? 'kg' : 'un'
+                                    })`
+                                  : 'Disponível'}
+                            </p>
+
+                            <div className="mt-3.5 flex flex-col gap-2">
                               <button
                                 type="button"
                                 disabled={outOfStock}
                                 onClick={() =>
                                   onAddToCart(product, defaultUnitMode, 1)
                                 }
-                                className="min-h-[44px] w-full cursor-pointer rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-950 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                                className="inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-900 px-3.5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-950 disabled:cursor-not-allowed disabled:bg-neutral-300"
                               >
-                                {outOfStock
-                                  ? 'Sem estoque'
-                                  : 'Adicionar ao carrinho'}
+                                <ShoppingCart className="h-4 w-4 shrink-0" />
+                                <span>
+                                  {outOfStock
+                                    ? 'Indisponível'
+                                    : 'Adicionar ao carrinho'}
+                                </span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => onSelectProduct(product.id)}
-                                className="min-h-[38px] w-full cursor-pointer rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                                className="min-h-[38px] w-full cursor-pointer rounded-xl border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:border-emerald-900/30 hover:bg-neutral-50 hover:text-emerald-950"
                               >
                                 Ver detalhes
                               </button>

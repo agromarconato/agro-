@@ -23,7 +23,7 @@ const upload = multer({
   },
 });
 
-function detectImageExtension(buffer: Buffer): {
+export function detectImageExtension(buffer: Buffer): {
   ext: string;
   mime: string;
 } | null {
@@ -106,20 +106,34 @@ router.get('/products', async (req, res) => {
   }
 });
 
-router.post(
-  '/products/upload-image',
-  upload.single('image'),
-  async (req, res) => {
+router.post('/products/upload-image', (req, res) => {
+  upload.single('image')(req, res, async (multerErr: unknown) => {
     try {
-      if (!req.file || !req.file.buffer) {
-        res.status(400).json({ error: 'Selecione um arquivo de imagem.' });
+      if (multerErr) {
+        const msg =
+          multerErr instanceof Error ? multerErr.message : String(multerErr);
+        if (msg.includes('File too large') || msg.includes('LIMIT_FILE_SIZE')) {
+          res.status(413).json({
+            error: 'Arquivo muito grande. Envie uma imagem de até 4 MB.',
+          });
+          return;
+        }
+        res.status(400).json({
+          error: 'Não foi possível processar o arquivo enviado.',
+        });
+        return;
+      }
+
+      if (!req.file || !req.file.buffer || req.file.buffer.length === 0) {
+        res.status(400).json({ error: 'Selecione um arquivo de imagem válido.' });
         return;
       }
 
       const detected = detectImageExtension(req.file.buffer);
       if (!detected) {
         res.status(400).json({
-          error: 'Formato inválido. Envie uma imagem JPG, PNG ou WebP de até 4MB.',
+          error:
+            'Formato inválido. Envie apenas imagens JPG, JPEG, PNG ou WebP de até 4 MB.',
         });
         return;
       }
@@ -128,17 +142,40 @@ router.post(
       const fileName = `${crypto.randomUUID()}.${detected.ext}`;
       const filePath = `products/${fileName}`;
 
-      const { error: uploadErr } = await supabase.storage
+      let { error: uploadErr } = await supabase.storage
         .from('product-images')
         .upload(filePath, req.file.buffer, {
           contentType: detected.mime,
           upsert: false,
         });
 
+      // Se o bucket ainda não foi criado no projeto Supabase, cria automaticamente com acesso público de leitura
+      if (
+        uploadErr &&
+        (uploadErr.message?.toLowerCase().includes('not found') ||
+          uploadErr.message?.toLowerCase().includes('bucket'))
+      ) {
+        await supabase.storage
+          .createBucket('product-images', {
+            public: true,
+            fileSizeLimit: 4 * 1024 * 1024,
+            allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+          })
+          .catch(() => undefined);
+
+        const retry = await supabase.storage
+          .from('product-images')
+          .upload(filePath, req.file.buffer, {
+            contentType: detected.mime,
+            upsert: false,
+          });
+        uploadErr = retry.error;
+      }
+
       if (uploadErr) {
         res.status(500).json({
           error:
-            'Erro ao enviar imagem para o Supabase Storage. Verifique se o script 005_storage_setup.sql foi executado.',
+            'Erro ao enviar imagem para o armazenamento. Verifique o Supabase Storage (005_storage_setup.sql) e tente novamente.',
         });
         return;
       }
@@ -147,6 +184,13 @@ router.post(
         .from('product-images')
         .getPublicUrl(filePath);
 
+      if (!publicUrlData?.publicUrl) {
+        res.status(500).json({
+          error: 'A imagem foi enviada, mas não foi possível gerar a URL pública.',
+        });
+        return;
+      }
+
       res.status(201).json({
         imageUrl: publicUrlData.publicUrl,
         imagePath: filePath,
@@ -154,8 +198,8 @@ router.post(
     } catch {
       res.status(500).json({ error: 'Erro interno ao enviar imagem.' });
     }
-  }
-);
+  });
+});
 
 router.post('/products', async (req, res) => {
   try {

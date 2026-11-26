@@ -219,3 +219,67 @@ export function isValidCpfClient(raw: string): boolean {
   if (rem === 10) rem = 0;
   return rem === Number(cpf[10]);
 }
+
+export function getProductDiscountBadge(
+  product: Pick<
+    Product,
+    'sale_type' | 'price_unit' | 'promo_price_unit' | 'price_kg' | 'promo_price_kg'
+  >
+): { hasDiscount: boolean; percent: number | null; label: string | null } {
+  const unitOriginal =
+    product.price_unit !== null ? Number(product.price_unit) : null;
+  const unitPromo =
+    product.promo_price_unit !== null ? Number(product.promo_price_unit) : null;
+  const hasPromoUnit =
+    (product.sale_type === 'unit' || product.sale_type === 'both') &&
+    unitOriginal !== null &&
+    unitPromo !== null &&
+    unitOriginal > 0 &&
+    unitPromo > 0 &&
+    unitPromo < unitOriginal;
+
+  const kgOriginal =
+    product.price_kg !== null ? Number(product.price_kg) : null;
+  const kgPromo =
+    product.promo_price_kg !== null ? Number(product.promo_price_kg) : null;
+  const hasPromoKg =
+    (product.sale_type === 'kg' || product.sale_type === 'both') &&
+    kgOriginal !== null &&
+    kgPromo !== null &&
+    kgOriginal > 0 &&
+    kgPromo > 0 &&
+    kgPromo < kgOriginal;
+
+  if (!hasPromoUnit && !hasPromoKg) {
+    return { hasDiscount: false, percent: null, label: null };
+  }
+
+  const orig = hasPromoUnit ? unitOriginal! : kgOriginal!;
+  const promo = hasPromoUnit ? unitPromo! : kgPromo!;
+  const rawPct = Math.round(((orig - promo) / orig) * 100);
+  if (rawPct >= 1) {
+    return { hasDiscount: true, percent: rawPct, label: `-${rawPct}%` };
+  }
+  return { hasDiscount: true, percent: 0, label: 'Oferta' };
+}
+
+export function getProductReviewDisplay(
+  product: Pick<Product, 'avg_rating' | 'review_count'>
+): { show: boolean; avgRating: number | null; reviewCount: number } {
+  const count = Number(product.review_count ?? 0);
+  const rating =
+    product.avg_rating !== null && product.avg_rating !== undefined
+      ? Number(product.avg_rating)
+      : null;
+
+  if (rating === null || !Number.isFinite(rating) || count <= 0) {
+    return { show: false, avgRating: null, reviewCount: 0 };
+  }
+
+  return {
+    show: true,
+    avgRating: rating,
+    reviewCount: count,
+  };
+}
+
