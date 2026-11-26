@@ -18,6 +18,7 @@ import { apiFetch } from '../lib/api';
 import {
   formatCurrency,
   formatProductCategories,
+  formatStockDisplay,
   getProductDiscountBadge,
   getProductReviewDisplay,
 } from '../lib/format';
@@ -812,9 +813,10 @@ export function CatalogView({
                               {outOfStock
                                 ? 'Sem estoque no momento'
                                 : product.manage_stock
-                                  ? `Em estoque (${product.stock_quantity} ${
-                                      product.sale_type === 'kg' ? 'kg' : 'un'
-                                    })`
+                                  ? `Em estoque (${formatStockDisplay(
+                                      product.stock_quantity,
+                                      product.sale_type
+                                    )})`
                                   : 'Disponível'}
                             </p>
                           </div>

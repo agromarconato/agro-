@@ -1,7 +1,38 @@
-import type { OrderPayment, OrderRecord, Product } from '../types';
+import type {
+  OrderPayment,
+  OrderRecord,
+  Product,
+  SaleType,
+  UnitMode,
+} from '../types';
 
 export const PICKUP_NOTICE_TEXT =
   'Você tem até 7 dias para retirar seu pedido na loja.';
+
+export function formatStockQuantity(
+  value: number | string | null | undefined
+): string {
+  const num = Number(value ?? 0);
+  if (!Number.isFinite(num) || num <= 0) return '0';
+  return Math.trunc(num).toLocaleString('pt-BR', {
+    maximumFractionDigits: 0,
+  });
+}
+
+export function formatStockDisplay(
+  value: number | string | null | undefined,
+  saleType?: SaleType | UnitMode | null
+): string {
+  const num = Number(value ?? 0);
+  const intVal = Number.isFinite(num) && num > 0 ? Math.trunc(num) : 0;
+  const formatted = intVal.toLocaleString('pt-BR', {
+    maximumFractionDigits: 0,
+  });
+  if (saleType === 'kg') {
+    return `${formatted} kg`;
+  }
+  return `${formatted} ${intVal === 1 ? 'unidade' : 'unidades'}`;
+}
 
 export function formatCurrency(value: number | string | null | undefined): string {
   const num = Number(value ?? 0);

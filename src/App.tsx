@@ -3,6 +3,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { type AppView, Header } from './components/Header';
 import { LoginPromptModal } from './components/LoginPromptModal';
 import { ProductDetailModal } from './components/ProductDetailModal';
+import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { apiFetch } from './lib/api';
 import type { Product, StoreConfig, UnitMode, UserProfile } from './types';
@@ -224,10 +225,9 @@ function StorefrontApp() {
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900">
+    <div className="min-h-screen overflow-x-clip bg-white pb-16 text-neutral-900">
       <Header
         storeName={config.storeName}
-        whatsappNumber={config.whatsappNumber}
         currentView={view}
         searchQuery={catalogSearch}
         onSearchChange={handleHeaderSearchChange}
@@ -239,7 +239,7 @@ function StorefrontApp() {
       {toast && (
         <div
           role="status"
-          className="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl bg-emerald-950 px-4 py-3 text-sm font-medium text-white shadow-lg"
+          className="fixed right-4 bottom-22 z-50 max-w-sm rounded-xl bg-emerald-950 px-4 py-3 text-sm font-medium text-white shadow-lg sm:right-6 sm:bottom-24"
         >
           {toast}
         </div>
@@ -324,6 +324,11 @@ function StorefrontApp() {
         onClose={() => setCartOpen(false)}
         onProceedToCheckout={() => navigate('checkout')}
         onRequireLogin={() => navigate('auth', 'login')}
+      />
+
+      <WhatsAppFloatingButton
+        whatsappNumber={config.whatsappNumber}
+        storeName={config.storeName}
       />
     </div>
   );

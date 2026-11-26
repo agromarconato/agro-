@@ -186,9 +186,10 @@ router.post('/items', async (req, res) => {
         Number(product.stock_quantity) < nextQuantity)
     ) {
       res.status(409).json({
-        error: `Estoque insuficiente para "${product.name}". Disponível: ${
-          product.stock_quantity ?? 0
-        }.`,
+        error: `Estoque insuficiente para "${product.name}". Disponível: ${Math.max(
+          0,
+          Math.trunc(Number(product.stock_quantity ?? 0))
+        ).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}.`,
       });
       return;
     }
@@ -276,7 +277,10 @@ router.patch('/items/:itemId', async (req, res) => {
       (product.stock_quantity === null || Number(product.stock_quantity) < quantity)
     ) {
       res.status(409).json({
-        error: `Estoque insuficiente. Disponível: ${product.stock_quantity ?? 0}.`,
+        error: `Estoque insuficiente. Disponível: ${Math.max(
+          0,
+          Math.trunc(Number(product.stock_quantity ?? 0))
+        ).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}.`,
       });
       return;
     }

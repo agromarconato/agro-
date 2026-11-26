@@ -19,6 +19,7 @@ import {
   formatPaymentSummary,
   formatPhoneInput,
   formatProductCategories,
+  formatStockDisplay,
 } from '../lib/format';
 import type { AdminUserRow, OrderRecord, OrderStatus, Product, SaleType } from '../types';
 
@@ -950,7 +951,7 @@ export function AdminView() {
                     </label>
                     <input
                       type="number"
-                      step="0.001"
+                      step="any"
                       min="0"
                       value={pStockQty}
                       onChange={(e) => setPStockQty(e.target.value)}
@@ -1027,7 +1028,11 @@ export function AdminView() {
                         <>
                           <span>·</span>
                           <span className="font-mono tabular-nums">
-                            Estoque: {prod.stock_quantity ?? 0}
+                            Estoque:{' '}
+                            {formatStockDisplay(
+                              prod.stock_quantity,
+                              prod.sale_type
+                            )}
                           </span>
                         </>
                       )}

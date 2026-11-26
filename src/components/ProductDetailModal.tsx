@@ -6,6 +6,7 @@ import {
   formatCurrency,
   formatDateTime,
   formatProductCategories,
+  formatStockDisplay,
 } from '../lib/format';
 import type { Product, ProductReview, UnitMode } from '../types';
 import { ProductImage } from './ProductImage';
@@ -275,8 +276,7 @@ export function ProductDetailModal({
                         <span className="text-xs text-neutral-500">
                           Estoque disponível:{' '}
                           <strong className="font-mono tabular-nums text-neutral-800">
-                            {product.stock_quantity ?? 0}{' '}
-                            {unitMode === 'kg' ? 'kg' : 'un'}
+                            {formatStockDisplay(product.stock_quantity, unitMode)}
                           </strong>
                         </span>
                       )}
