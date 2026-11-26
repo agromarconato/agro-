@@ -24,7 +24,20 @@ import {
 } from '../lib/format';
 import type { Product, StoreConfig, UnitMode } from '../types';
 
-const DEFAULT_HERO_IMAGE = '/assets/hero-agromarconato.png';
+export const HERO_BANNER_INTERVAL_MS = 5000;
+
+export const HERO_BANNERS = [
+  {
+    id: 'vila-ferramentas',
+    src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.18.06_26d233e7.jpeg',
+    alt: 'Vila Ferramentas - De profissional para profissional',
+  },
+  {
+    id: 'racao-mandala',
+    src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.13.44__1__7f49c5d5.jpeg',
+    alt: 'Ração Mandala - Qualidade e nutrição em cada refeição na Agro Marconato',
+  },
+] as const;
 
 interface CatalogResponse {
   products: Product[];
@@ -69,9 +82,7 @@ export function CatalogView({
   onSelectProduct,
   onAddToCart,
 }: CatalogViewProps) {
-  const heroImageUrl =
-    (import.meta.env.VITE_HERO_IMAGE_URL as string | undefined)?.trim() ||
-    DEFAULT_HERO_IMAGE;
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
 
   const [appliedSearch, setAppliedSearch] = useState(searchInput.trim());
   const [category, setCategory] = useState('');
@@ -96,6 +107,13 @@ export function CatalogView({
     totalPages: 1,
     supabaseConfigured: true,
   });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveBannerIndex((prev) => (prev + 1) % HERO_BANNERS.length);
+    }, HERO_BANNER_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [activeBannerIndex]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -437,39 +455,59 @@ export function CatalogView({
       />
 
       <main className="mx-auto max-w-[1680px] px-4 py-6 sm:px-5 lg:px-6">
-        {/* Banner principal amplo logo abaixo do cabeçalho (sem botão Atendimento no WhatsApp) */}
-        <section className="grid grid-cols-1 items-stretch overflow-hidden rounded-2xl border border-emerald-950/15 bg-emerald-950 text-white shadow-sm lg:grid-cols-12">
-          <div className="flex flex-col justify-center p-8 sm:p-12 lg:col-span-6 lg:p-14">
-            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-              {config.storeName}
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-relaxed text-emerald-50/95 sm:text-lg">
-              {config.storeDescription}
-            </p>
-
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <button
-                type="button"
-                onClick={scrollToCatalog}
-                className="min-h-[48px] cursor-pointer rounded-xl bg-white px-7 py-3 text-[15px] font-bold text-emerald-950 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 whitespace-nowrap"
-              >
-                Ver produtos
-              </button>
-            </div>
+        {/* Carrossel de banners principais (Vila Ferramentas e Ração Mandala), alternando a cada 5s */}
+        <section
+          aria-roledescription="carousel"
+          aria-label={`Destaques ${config.storeName}`}
+          className="relative w-full overflow-hidden rounded-2xl border border-emerald-950/15 bg-neutral-950 shadow-sm"
+        >
+          <div className="relative h-[220px] sm:h-[290px] lg:h-[440px] w-full overflow-hidden">
+            {HERO_BANNERS.map((banner, idx) => {
+              const isActive = idx === activeBannerIndex;
+              return (
+                <div
+                  key={banner.id}
+                  aria-hidden={!isActive}
+                  className={`absolute inset-0 flex h-full w-full items-center justify-center transition-opacity duration-700 ease-in-out ${
+                    isActive
+                      ? 'z-10 opacity-100'
+                      : 'pointer-events-none z-0 opacity-0'
+                  }`}
+                >
+                  <img
+                    src={banner.src}
+                    alt={banner.alt}
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    className="max-h-full max-w-full h-auto w-auto object-contain select-none"
+                  />
+                </div>
+              );
+            })}
           </div>
 
-          <div className="relative flex min-h-[290px] items-center justify-center bg-[#142135] p-6 lg:col-span-6 lg:min-h-[440px]">
-            <img
-              src={heroImageUrl}
-              alt={config.storeName}
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                if (e.currentTarget.dataset.fallbackApplied) return;
-                e.currentTarget.dataset.fallbackApplied = 'true';
-                e.currentTarget.src = DEFAULT_HERO_IMAGE;
-              }}
-              className="max-h-[400px] w-full object-contain"
-            />
+          <div
+            role="tablist"
+            aria-label="Selecionar banner"
+            className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/45 px-3 py-1.5 backdrop-blur-sm sm:bottom-4"
+          >
+            {HERO_BANNERS.map((banner, idx) => {
+              const isActive = idx === activeBannerIndex;
+              return (
+                <button
+                  key={banner.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={`Exibir banner ${idx + 1}: ${banner.alt}`}
+                  onClick={() => setActiveBannerIndex(idx)}
+                  className={`h-2.5 cursor-pointer rounded-full transition-all duration-300 ${
+                    isActive
+                      ? 'w-7 bg-white shadow-sm'
+                      : 'w-2.5 bg-white/50 hover:bg-white/85'
+                  }`}
+                />
+              );
+            })}
           </div>
         </section>
 
