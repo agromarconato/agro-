@@ -435,7 +435,7 @@ export function CatalogView({
         onSelectFilter={handleDepartmentFilter}
       />
 
-      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-[1680px] px-4 py-6 sm:px-5 lg:px-6">
         {/* Banner principal amplo logo abaixo do cabeçalho (sem botão Atendimento no WhatsApp) */}
         <section className="grid grid-cols-1 items-stretch overflow-hidden rounded-2xl border border-emerald-950/15 bg-emerald-950 text-white shadow-sm lg:grid-cols-12">
           <div className="flex flex-col justify-center p-8 sm:p-12 lg:col-span-6 lg:p-14">
@@ -521,11 +521,11 @@ export function CatalogView({
             </div>
           )}
 
-          <div className="flex flex-col gap-7 lg:flex-row lg:items-start">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
             {/* Coluna esquerda: Painel de Filtros (Desktop) */}
             <aside
               aria-label="Filtros do catálogo"
-              className="hidden lg:block w-[300px] xl:w-[320px] shrink-0 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+              className="hidden lg:block w-[235px] xl:w-[250px] shrink-0 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm"
             >
               {filterPanelBody}
             </aside>
@@ -612,11 +612,11 @@ export function CatalogView({
 
               {/* Estado de carregamento e erro */}
               {loading && (
-                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
                   {Array.from({ length: 10 }).map((_, idx) => (
                     <div
                       key={idx}
-                      className="h-[430px] animate-pulse rounded-2xl border border-neutral-200 bg-neutral-100"
+                      className="h-[360px] animate-pulse rounded-2xl border border-neutral-200 bg-neutral-100"
                     />
                   ))}
                 </div>
@@ -652,7 +652,7 @@ export function CatalogView({
 
               {/* Grade de produtos: 5 colunas em desktop (xl:grid-cols-5), até 25 por página */}
               {!loading && !error && catalog.products.length > 0 && (
-                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
                   {catalog.products.map((product) => {
                     const hasPromoUnit =
                       product.promo_price_unit !== null &&
@@ -679,16 +679,16 @@ export function CatalogView({
                     return (
                       <article
                         key={product.id}
-                        className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-900/30 hover:shadow-[0_14px_30px_rgba(2,44,34,0.10)]"
+                        className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-900/30 hover:shadow-[0_12px_24px_rgba(2,44,34,0.09)]"
                       >
                         <button
                           type="button"
                           onClick={() => onSelectProduct(product.id)}
                           aria-label={`Ver detalhes de ${product.name}`}
-                          className="relative aspect-square w-full cursor-pointer overflow-hidden border-b border-neutral-100 bg-neutral-50/70 p-3 text-left"
+                          className="catalog-card-image-box relative cursor-pointer border-b border-neutral-100 text-left"
                         >
                           {discountBadge.hasDiscount && discountBadge.label && (
-                            <span className="absolute top-3 left-3 z-10 rounded-lg bg-emerald-900 px-2.5 py-1 font-mono text-xs font-extrabold tracking-tight text-white shadow-sm">
+                            <span className="absolute top-2.5 left-2.5 z-10 rounded-md bg-emerald-900 px-2 py-0.5 font-mono text-[11px] font-extrabold tracking-tight text-white shadow-sm">
                               {discountBadge.label}
                             </span>
                           )}
@@ -696,70 +696,78 @@ export function CatalogView({
                             src={product.image_url}
                             alt={product.name}
                             fit="contain"
-                            className="h-full w-full transition-transform duration-300 group-hover:scale-105"
+                            className="h-full w-full"
                           />
                         </button>
 
-                        <div className="flex flex-1 flex-col justify-between p-4">
-                          <div>
-                            {categoryLabels.length > 0 && (
-                              <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-emerald-800/80">
-                                {categoryLabels.join(' · ')}
+                        <div className="flex flex-1 flex-col p-3.5">
+                          {categoryLabels.length > 0 && (
+                            <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-emerald-800/80">
+                              {categoryLabels.join(' · ')}
+                            </p>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => onSelectProduct(product.id)}
+                            title={product.name}
+                            className="mt-1 cursor-pointer text-left text-[14px] font-bold leading-[1.35] text-neutral-900 line-clamp-2 min-h-[2.7em] transition-colors hover:text-emerald-900"
+                          >
+                            {product.name}
+                          </button>
+
+                          <div className="mt-1.5 min-h-[20px]">
+                            {reviewDisplay.show &&
+                            reviewDisplay.avgRating !== null ? (
+                              <div
+                                className="flex items-center gap-1"
+                                aria-label={`Avaliação ${reviewDisplay.avgRating} de 5 (${reviewDisplay.reviewCount} avaliações)`}
+                              >
+                                <div className="flex items-center gap-0.5">
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-3.5 w-3.5 ${
+                                        i < Math.round(reviewDisplay.avgRating!)
+                                          ? 'fill-amber-500 text-amber-500'
+                                          : 'fill-neutral-200 text-neutral-200'
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-xs font-semibold text-neutral-700">
+                                  {reviewDisplay.avgRating
+                                    .toFixed(1)
+                                    .replace('.', ',')}
+                                </span>
+                                <span className="text-xs text-neutral-500">
+                                  ({reviewDisplay.reviewCount})
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="text-xs font-medium text-neutral-400">
+                                Ainda sem avaliação
                               </p>
                             )}
-
-                            <button
-                              type="button"
-                              onClick={() => onSelectProduct(product.id)}
-                              className="mt-1.5 cursor-pointer text-left text-[15px] font-bold leading-snug text-neutral-900 line-clamp-3 min-h-[3.9rem] transition-colors hover:text-emerald-900"
-                            >
-                              {product.name}
-                            </button>
-
-                            {reviewDisplay.show &&
-                              reviewDisplay.avgRating !== null && (
-                                <div
-                                  className="mt-2 flex items-center gap-1.5"
-                                  aria-label={`Avaliação ${reviewDisplay.avgRating} de 5 (${reviewDisplay.reviewCount} avaliações)`}
-                                >
-                                  <div className="flex items-center gap-0.5">
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`h-3.5 w-3.5 ${
-                                          i <
-                                          Math.round(reviewDisplay.avgRating!)
-                                            ? 'fill-amber-500 text-amber-500'
-                                            : 'fill-neutral-200 text-neutral-200'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="text-xs font-semibold text-neutral-700">
-                                    {reviewDisplay.avgRating}
-                                  </span>
-                                  <span className="text-xs text-neutral-500">
-                                    ({reviewDisplay.reviewCount})
-                                  </span>
-                                </div>
-                              )}
                           </div>
 
-                          <div className="mt-4 border-t border-neutral-100 pt-3.5">
-                            <div className="space-y-2">
+                          <div className="mt-2.5 border-t border-neutral-100 pt-2.5">
+                            <div className="space-y-1.5">
                               {(product.sale_type === 'unit' ||
                                 product.sale_type === 'both') &&
                                 product.price_unit !== null && (
                                   <div className="flex flex-col">
-                                    <span className="text-[11px] font-medium text-neutral-500">
-                                      Por unidade
-                                    </span>
-                                    {hasPromoUnit && (
-                                      <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
-                                        {formatCurrency(product.price_unit)}
+                                    <div className="flex items-baseline justify-between gap-2">
+                                      <span className="text-[11px] font-medium text-neutral-500">
+                                        Por unidade
                                       </span>
-                                    )}
-                                    <span className="font-mono tabular-nums text-[22px] font-extrabold leading-tight text-emerald-900">
+                                      {hasPromoUnit && (
+                                        <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
+                                          {formatCurrency(product.price_unit)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-mono tabular-nums text-[19px] font-extrabold leading-tight text-emerald-900">
                                       {formatCurrency(
                                         hasPromoUnit
                                           ? product.promo_price_unit
@@ -773,15 +781,17 @@ export function CatalogView({
                                 product.sale_type === 'both') &&
                                 product.price_kg !== null && (
                                   <div className="flex flex-col">
-                                    <span className="text-[11px] font-medium text-neutral-500">
-                                      Por quilo
-                                    </span>
-                                    {hasPromoKg && (
-                                      <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
-                                        {formatCurrency(product.price_kg)}
+                                    <div className="flex items-baseline justify-between gap-2">
+                                      <span className="text-[11px] font-medium text-neutral-500">
+                                        Por quilo
                                       </span>
-                                    )}
-                                    <span className="font-mono tabular-nums text-[22px] font-extrabold leading-tight text-emerald-900">
+                                      {hasPromoKg && (
+                                        <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
+                                          {formatCurrency(product.price_kg)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-mono tabular-nums text-[19px] font-extrabold leading-tight text-emerald-900">
                                       {formatCurrency(
                                         hasPromoKg
                                           ? product.promo_price_kg
@@ -793,7 +803,7 @@ export function CatalogView({
                             </div>
 
                             <p
-                              className={`mt-2.5 text-xs font-semibold ${
+                              className={`mt-2 text-xs font-semibold ${
                                 outOfStock
                                   ? 'text-red-700'
                                   : 'text-emerald-800'
@@ -807,31 +817,31 @@ export function CatalogView({
                                     })`
                                   : 'Disponível'}
                             </p>
+                          </div>
 
-                            <div className="mt-3.5 flex flex-col gap-2">
-                              <button
-                                type="button"
-                                disabled={outOfStock}
-                                onClick={() =>
-                                  onAddToCart(product, defaultUnitMode, 1)
-                                }
-                                className="inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-900 px-3.5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-950 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                              >
-                                <ShoppingCart className="h-4 w-4 shrink-0" />
-                                <span>
-                                  {outOfStock
-                                    ? 'Indisponível'
-                                    : 'Adicionar ao carrinho'}
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onSelectProduct(product.id)}
-                                className="min-h-[38px] w-full cursor-pointer rounded-xl border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:border-emerald-900/30 hover:bg-neutral-50 hover:text-emerald-950"
-                              >
-                                Ver detalhes
-                              </button>
-                            </div>
+                          <div className="mt-auto flex flex-col gap-1.5 pt-3">
+                            <button
+                              type="button"
+                              disabled={outOfStock}
+                              onClick={() =>
+                                onAddToCart(product, defaultUnitMode, 1)
+                              }
+                              className="inline-flex min-h-[42px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-900 px-3 py-2 text-[13px] font-bold text-white shadow-sm transition-colors hover:bg-emerald-950 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                            >
+                              <ShoppingCart className="h-4 w-4 shrink-0" />
+                              <span className="truncate">
+                                {outOfStock
+                                  ? 'Indisponível'
+                                  : 'Adicionar ao carrinho'}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onSelectProduct(product.id)}
+                              className="min-h-[36px] w-full cursor-pointer rounded-xl border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:border-emerald-900/30 hover:bg-neutral-50 hover:text-emerald-950"
+                            >
+                              Ver detalhes
+                            </button>
                           </div>
                         </div>
                       </article>

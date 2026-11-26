@@ -36,13 +36,21 @@ export function ProductImage({
   }
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
-      className={`${fit === 'contain' ? 'object-contain p-2' : 'object-cover'} ${className}`}
-    />
+    <div
+      className={`flex items-center justify-center overflow-hidden ${className}`}
+    >
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className={
+          fit === 'contain'
+            ? 'catalog-card-img select-none'
+            : 'h-full w-full object-cover select-none'
+        }
+      />
+    </div>
   );
 }

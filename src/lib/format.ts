@@ -272,7 +272,7 @@ export function getProductReviewDisplay(
       ? Number(product.avg_rating)
       : null;
 
-  if (rating === null || !Number.isFinite(rating) || count <= 0) {
+  if (rating === null || !Number.isFinite(rating) || rating <= 0 || count <= 0) {
     return { show: false, avgRating: null, reviewCount: 0 };
   }
 
