@@ -30,16 +30,18 @@ export const HERO_BANNERS = [
   {
     id: 'vila-ferramentas',
     src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.18.06_26d233e7.jpeg',
+    wideSrc: '/assets/aistudio/banner_vila_wide.jpg',
     alt: 'Vila Ferramentas - De profissional para profissional',
     bgClass:
-      'bg-[linear-gradient(90deg,#1f2124_0%,#0c0d0e_24%,#050505_50%,#0c0d0e_76%,#241913_100%)]',
+      'bg-[linear-gradient(90deg,#050505_0%,#0c0d0e_24%,#050505_50%,#0c0d0e_76%,#050505_100%)]',
   },
   {
     id: 'racao-mandala',
     src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.13.44__1__7f49c5d5.jpeg',
+    wideSrc: '/assets/aistudio/banner_mandala_wide.jpg',
     alt: 'Ração Mandala - Qualidade e nutrição em cada refeição na Agro Marconato',
     bgClass:
-      'bg-[linear-gradient(90deg,#4e090d_0%,#340507_26%,#2e0406_50%,#340507_74%,#4e090d_100%)]',
+      'bg-[linear-gradient(90deg,#250204_0%,#340507_26%,#2e0406_50%,#340507_74%,#250204_100%)]',
   },
 ] as const;
 
@@ -480,12 +482,15 @@ export function CatalogView({
                       : 'pointer-events-none z-0 opacity-0'
                   }`}
                 >
-                  <img
-                    src={banner.src}
-                    alt={banner.alt}
-                    loading={idx === 0 ? 'eager' : 'lazy'}
-                    className="block h-full w-full object-contain object-center select-none"
-                  />
+                  <picture className="block h-full w-full">
+                    <source media="(min-width: 640px)" srcSet={banner.wideSrc} />
+                    <img
+                      src={banner.src}
+                      alt={banner.alt}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      className="block h-full w-full object-contain object-center select-none"
+                    />
+                  </picture>
                 </div>
               );
             })}
