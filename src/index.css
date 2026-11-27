@@ -48,5 +48,22 @@
     object-fit: contain;
     object-position: center;
   }
+
+  .hero-stage-vila {
+    background-color: #191b1e;
+    background-image:
+      radial-gradient(circle at 50% 45%, rgba(234, 88, 12, 0.22) 0%, rgba(234, 88, 12, 0.05) 45%, transparent 72%),
+      radial-gradient(rgba(255, 255, 255, 0.06) 1.5px, transparent 1.5px),
+      linear-gradient(135deg, #25282c 0%, #17191c 55%, #231914 100%);
+    background-size: 100% 100%, 14px 14px, 100% 100%;
+  }
+
+  .hero-stage-mandala {
+    background-color: #4a090d;
+    background-image:
+      radial-gradient(circle at 50% 45%, rgba(212, 162, 89, 0.18) 0%, rgba(138, 22, 29, 0.22) 48%, transparent 78%),
+      linear-gradient(135deg, #3c070a 0%, #631016 50%, #3a0609 100%);
+  }
 }
+
 

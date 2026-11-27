@@ -31,13 +31,15 @@ export const HERO_BANNERS = [
     id: 'vila-ferramentas',
     src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.18.06_26d233e7.jpeg',
     alt: 'Vila Ferramentas - De profissional para profissional',
-    backdropClass: 'bg-gradient-to-r from-[#241b17] via-[#1f1d1c] to-[#5c280f]',
+    bgClass:
+      'bg-[linear-gradient(90deg,#1f2124_0%,#0c0d0e_24%,#050505_50%,#0c0d0e_76%,#241913_100%)]',
   },
   {
     id: 'racao-mandala',
     src: '/assets/aistudio/WhatsApp_Image_2026-11-25_at_22.13.44__1__7f49c5d5.jpeg',
     alt: 'Ração Mandala - Qualidade e nutrição em cada refeição na Agro Marconato',
-    backdropClass: 'bg-gradient-to-r from-[#4b090d] via-[#5d0e13] to-[#3d080b]',
+    bgClass:
+      'bg-[linear-gradient(90deg,#4e090d_0%,#340507_26%,#2e0406_50%,#340507_74%,#4e090d_100%)]',
   },
 ] as const;
 
@@ -461,7 +463,7 @@ export function CatalogView({
         <section
           aria-roledescription="carousel"
           aria-label={`Destaques ${config.storeName}`}
-          className={`relative w-full overflow-hidden rounded-2xl border border-emerald-950/15 shadow-sm transition-colors duration-700 ${HERO_BANNERS[activeBannerIndex].backdropClass}`}
+          className={`relative w-full overflow-hidden rounded-2xl border border-emerald-950/15 shadow-sm transition-colors duration-700 ${HERO_BANNERS[activeBannerIndex].bgClass}`}
         >
           <div className="relative h-[220px] sm:h-[290px] lg:h-[440px] w-full overflow-hidden">
             {HERO_BANNERS.map((banner, idx) => {
@@ -471,7 +473,7 @@ export function CatalogView({
                   key={banner.id}
                   aria-hidden={!isActive}
                   className={`absolute inset-0 flex h-full w-full items-center justify-center overflow-hidden transition-opacity duration-700 ease-in-out ${
-                    banner.backdropClass
+                    banner.bgClass
                   } ${
                     isActive
                       ? 'z-10 opacity-100'
@@ -480,15 +482,9 @@ export function CatalogView({
                 >
                   <img
                     src={banner.src}
-                    alt=""
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-85 blur-2xl saturate-125 select-none"
-                  />
-                  <img
-                    src={banner.src}
                     alt={banner.alt}
                     loading={idx === 0 ? 'eager' : 'lazy'}
-                    className="relative z-10 max-h-full max-w-full h-auto w-auto object-contain select-none"
+                    className="block h-full w-full object-contain object-center select-none"
                   />
                 </div>
               );
@@ -498,7 +494,7 @@ export function CatalogView({
           <div
             role="tablist"
             aria-label="Selecionar banner"
-            className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/45 px-3 py-1.5 backdrop-blur-sm sm:bottom-4"
+            className="absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/35 px-3 py-1 backdrop-blur-sm sm:bottom-2.5"
           >
             {HERO_BANNERS.map((banner, idx) => {
               const isActive = idx === activeBannerIndex;
@@ -510,10 +506,10 @@ export function CatalogView({
                   aria-selected={isActive}
                   aria-label={`Exibir banner ${idx + 1}: ${banner.alt}`}
                   onClick={() => setActiveBannerIndex(idx)}
-                  className={`h-2.5 cursor-pointer rounded-full transition-all duration-300 ${
+                  className={`h-2 cursor-pointer rounded-full transition-all duration-300 ${
                     isActive
                       ? 'w-7 bg-white shadow-sm'
-                      : 'w-2.5 bg-white/50 hover:bg-white/85'
+                      : 'w-2 bg-white/55 hover:bg-white/90'
                   }`}
                 />
               );
@@ -538,7 +534,7 @@ export function CatalogView({
         )}
 
         {/* Área do Catálogo: Filtros na coluna esquerda + Grade 5 colunas à direita */}
-        <section id="catalogo-produtos" className="mt-10">
+        <section id="catalogo-produtos" className="mt-6">
           {/* Botão abrir/fechar filtros no celular */}
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3 lg:hidden">
             <button
@@ -579,45 +575,42 @@ export function CatalogView({
               {filterPanelBody}
             </aside>
 
-            {/* Coluna direita: Cabeçalho da lista + Grade de produtos (5 colunas no desktop) */}
+            {/* Coluna direita: Grade de produtos diretamente abaixo do banner (5 colunas no desktop) */}
             <div className="min-w-0 flex-1">
-              <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl">
-                    {category
-                      ? subcategory
-                        ? `${category} · ${subcategory}`
-                        : category
-                      : promoOnly
-                        ? 'Produtos em Promoção'
-                        : 'Catálogo Geral de Produtos'}
-                  </h2>
-                  <p className="mt-1 text-sm text-neutral-600">
-                    {appliedSearch
-                      ? `Resultados para "${appliedSearch}"`
-                      : 'Confira os produtos reais cadastrados na Agro Marconato.'}
-                  </p>
-                </div>
+              {hasActiveFilters && (
+                <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold tracking-tight text-neutral-900 sm:text-xl">
+                      {category
+                        ? subcategory
+                          ? `${category} · ${subcategory}`
+                          : category
+                        : promoOnly
+                          ? 'Produtos em Promoção'
+                          : appliedSearch
+                            ? `Resultados para "${appliedSearch}"`
+                            : 'Produtos filtrados'}
+                    </h2>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  {hasActiveFilters && (
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       type="button"
                       onClick={handleClearFilters}
-                      className="inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3.5 py-1.5 text-xs font-bold text-neutral-800 hover:bg-neutral-50"
+                      className="inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-bold text-neutral-800 hover:bg-neutral-50"
                     >
                       <X className="h-3.5 w-3.5" />
                       Limpar filtros
                     </button>
-                  )}
-                  <span className="font-mono tabular-nums text-sm font-bold text-emerald-950">
-                    {catalog.totalCount}{' '}
-                    {catalog.totalCount === 1
-                      ? 'produto encontrado'
-                      : 'produtos encontrados'}
-                  </span>
+                    <span className="font-mono tabular-nums text-sm font-bold text-emerald-950">
+                      {catalog.totalCount}{' '}
+                      {catalog.totalCount === 1
+                        ? 'produto encontrado'
+                        : 'produtos encontrados'}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Atalho visual de subcategorias dentro de Animais quando Animais estiver selecionado */}
               {category === 'Animais' && (
@@ -661,7 +654,7 @@ export function CatalogView({
 
               {/* Estado de carregamento e erro */}
               {loading && (
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
                   {Array.from({ length: 10 }).map((_, idx) => (
                     <div
                       key={idx}
@@ -672,13 +665,13 @@ export function CatalogView({
               )}
 
               {error && !loading && (
-                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+                <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
                   {error}
                 </div>
               )}
 
               {!loading && !error && catalog.products.length === 0 && (
-                <div className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-12 text-center">
+                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-12 text-center">
                   <p className="text-lg font-bold text-neutral-800">
                     Nenhum produto encontrado
                   </p>
@@ -693,7 +686,7 @@ export function CatalogView({
                       onClick={handleClearFilters}
                       className="mt-5 min-h-[44px] cursor-pointer rounded-lg bg-emerald-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-950"
                     >
-                      Ver Catálogo Geral
+                      Ver todos os produtos
                     </button>
                   )}
                 </div>
@@ -701,7 +694,7 @@ export function CatalogView({
 
               {/* Grade de produtos: 5 colunas em desktop (xl:grid-cols-5), até 25 por página */}
               {!loading && !error && catalog.products.length > 0 && (
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
                   {catalog.products.map((product) => {
                     const hasPromoUnit =
                       product.promo_price_unit !== null &&
@@ -712,12 +705,23 @@ export function CatalogView({
                       product.promo_price_kg !== null &&
                       product.price_kg !== null &&
                       Number(product.promo_price_kg) < Number(product.price_kg);
+                    const hasPromoMeter =
+                      product.promo_price_meter !== null &&
+                      product.promo_price_meter !== undefined &&
+                      product.price_meter !== null &&
+                      product.price_meter !== undefined &&
+                      Number(product.promo_price_meter) <
+                        Number(product.price_meter);
 
                     const discountBadge = getProductDiscountBadge(product);
                     const reviewDisplay = getProductReviewDisplay(product);
 
                     const defaultUnitMode: UnitMode =
-                      product.sale_type === 'kg' ? 'kg' : 'unit';
+                      product.sale_type === 'kg'
+                        ? 'kg'
+                        : product.sale_type === 'meter'
+                          ? 'meter'
+                          : 'unit';
 
                     const outOfStock =
                       product.manage_stock &&
@@ -826,30 +830,60 @@ export function CatalogView({
                                   </div>
                                 )}
 
-                              {(product.sale_type === 'kg' ||
-                                product.sale_type === 'both') &&
-                                product.price_kg !== null && (
-                                  <div className="flex flex-col">
-                                    <div className="flex items-baseline justify-between gap-2">
-                                      <span className="text-[11px] font-medium text-neutral-500">
-                                        Por quilo
-                                      </span>
-                                      {hasPromoKg && (
-                                        <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
-                                          {formatCurrency(product.price_kg)}
+                                {(product.sale_type === 'kg' ||
+                                  product.sale_type === 'both') &&
+                                  product.price_kg !== null && (
+                                    <div className="flex flex-col">
+                                      <div className="flex items-baseline justify-between gap-2">
+                                        <span className="text-[11px] font-medium text-neutral-500">
+                                          Por quilo
                                         </span>
-                                      )}
+                                        {hasPromoKg && (
+                                          <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
+                                            {formatCurrency(product.price_kg)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="font-mono tabular-nums text-[19px] font-extrabold leading-tight text-emerald-900">
+                                        {formatCurrency(
+                                          hasPromoKg
+                                            ? product.promo_price_kg
+                                            : product.price_kg
+                                        )}
+                                        <span className="ml-1 text-xs font-semibold text-neutral-500">
+                                          / kg
+                                        </span>
+                                      </span>
                                     </div>
-                                    <span className="font-mono tabular-nums text-[19px] font-extrabold leading-tight text-emerald-900">
-                                      {formatCurrency(
-                                        hasPromoKg
-                                          ? product.promo_price_kg
-                                          : product.price_kg
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
-                            </div>
+                                  )}
+
+                                {product.sale_type === 'meter' &&
+                                  product.price_meter !== null &&
+                                  product.price_meter !== undefined && (
+                                    <div className="flex flex-col">
+                                      <div className="flex items-baseline justify-between gap-2">
+                                        <span className="text-[11px] font-medium text-neutral-500">
+                                          Por metro
+                                        </span>
+                                        {hasPromoMeter && (
+                                          <span className="font-mono tabular-nums text-xs text-neutral-400 line-through">
+                                            {formatCurrency(product.price_meter)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="font-mono tabular-nums text-[19px] font-extrabold leading-tight text-emerald-900">
+                                        {formatCurrency(
+                                          hasPromoMeter
+                                            ? product.promo_price_meter
+                                            : product.price_meter
+                                        )}
+                                        <span className="ml-1 text-xs font-semibold text-neutral-500">
+                                          / m
+                                        </span>
+                                      </span>
+                                    </div>
+                                  )}
+                              </div>
 
                             <p
                               className={`mt-2 text-xs font-semibold ${

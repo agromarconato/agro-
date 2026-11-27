@@ -19,6 +19,20 @@ export function formatStockQuantity(
   });
 }
 
+export function formatUnitShort(
+  unitMode: SaleType | UnitMode | null | undefined
+): string {
+  if (unitMode === 'kg') return 'kg';
+  if (unitMode === 'meter') return 'm';
+  return 'un';
+}
+
+export function formatUnitFull(unitMode: UnitMode | null | undefined): string {
+  if (unitMode === 'kg') return 'quilo (kg)';
+  if (unitMode === 'meter') return 'metro (m)';
+  return 'unidade';
+}
+
 export function formatStockDisplay(
   value: number | string | null | undefined,
   saleType?: SaleType | UnitMode | null
@@ -30,6 +44,9 @@ export function formatStockDisplay(
   });
   if (saleType === 'kg') {
     return `${formatted} kg`;
+  }
+  if (saleType === 'meter') {
+    return `${formatted} ${intVal === 1 ? 'metro' : 'metros'}`;
   }
   return `${formatted} ${intVal === 1 ? 'unidade' : 'unidades'}`;
 }
@@ -254,7 +271,13 @@ export function isValidCpfClient(raw: string): boolean {
 export function getProductDiscountBadge(
   product: Pick<
     Product,
-    'sale_type' | 'price_unit' | 'promo_price_unit' | 'price_kg' | 'promo_price_kg'
+    | 'sale_type'
+    | 'price_unit'
+    | 'promo_price_unit'
+    | 'price_kg'
+    | 'promo_price_kg'
+    | 'price_meter'
+    | 'promo_price_meter'
   >
 ): { hasDiscount: boolean; percent: number | null; label: string | null } {
   const unitOriginal =
@@ -281,12 +304,36 @@ export function getProductDiscountBadge(
     kgPromo > 0 &&
     kgPromo < kgOriginal;
 
-  if (!hasPromoUnit && !hasPromoKg) {
+  const meterOriginal =
+    product.price_meter !== null && product.price_meter !== undefined
+      ? Number(product.price_meter)
+      : null;
+  const meterPromo =
+    product.promo_price_meter !== null && product.promo_price_meter !== undefined
+      ? Number(product.promo_price_meter)
+      : null;
+  const hasPromoMeter =
+    product.sale_type === 'meter' &&
+    meterOriginal !== null &&
+    meterPromo !== null &&
+    meterOriginal > 0 &&
+    meterPromo > 0 &&
+    meterPromo < meterOriginal;
+
+  if (!hasPromoUnit && !hasPromoKg && !hasPromoMeter) {
     return { hasDiscount: false, percent: null, label: null };
   }
 
-  const orig = hasPromoUnit ? unitOriginal! : kgOriginal!;
-  const promo = hasPromoUnit ? unitPromo! : kgPromo!;
+  const orig = hasPromoUnit
+    ? unitOriginal!
+    : hasPromoKg
+      ? kgOriginal!
+      : meterOriginal!;
+  const promo = hasPromoUnit
+    ? unitPromo!
+    : hasPromoKg
+      ? kgPromo!
+      : meterPromo!;
   const rawPct = Math.round(((orig - promo) / orig) * 100);
   if (rawPct >= 1) {
     return { hasDiscount: true, percent: rawPct, label: `-${rawPct}%` };

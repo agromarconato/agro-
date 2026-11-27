@@ -1,7 +1,7 @@
 import { Minus, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { formatCurrency } from '../lib/format';
+import { formatCurrency, formatUnitShort } from '../lib/format';
 import { ProductImage } from './ProductImage';
 
 interface CartDrawerProps {
@@ -111,7 +111,7 @@ export function CartDrawer({
                           </h3>
                           <p className="mt-0.5 font-mono tabular-nums text-xs text-neutral-500">
                             {formatCurrency(item.unitPrice)} /{' '}
-                            {item.unitMode === 'kg' ? 'kg' : 'un'}
+                            {formatUnitShort(item.unitMode)}
                           </p>
                         </div>
                         <button
@@ -144,8 +144,7 @@ export function CartDrawer({
                             <Minus className="h-3.5 w-3.5" />
                           </button>
                           <span className="min-w-[46px] px-2 text-center font-mono tabular-nums text-xs font-medium text-neutral-900">
-                            {item.quantity}{' '}
-                            {item.unitMode === 'kg' ? 'kg' : 'un'}
+                            {item.quantity} {formatUnitShort(item.unitMode)}
                           </span>
                           <button
                             type="button"

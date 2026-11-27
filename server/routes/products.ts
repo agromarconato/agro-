@@ -116,22 +116,31 @@ router.get('/', async (req, res) => {
 
     const supabase = getSupabaseAdmin();
 
-    const buildQuery = (supportsExtendedTaxonomy: boolean) => {
-      let query = supportsExtendedTaxonomy
-        ? supabase
-            .from('products')
-            .select(
-              'id, name, description, category, additional_categories, subcategory, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at',
-              { count: 'exact' }
-            )
-            .eq('is_active', true)
-        : supabase
-            .from('products')
-            .select(
-              'id, name, description, category, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at',
-              { count: 'exact' }
-            )
-            .eq('is_active', true);
+    const buildQuery = (mode: 'full' | 'taxonomy' | 'legacy') => {
+      let query =
+        mode === 'full'
+          ? supabase
+              .from('products')
+              .select(
+                'id, name, description, category, additional_categories, subcategory, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, price_meter, promo_price_meter, sort_price, manage_stock, stock_quantity, is_active, created_at',
+                { count: 'exact' }
+              )
+              .eq('is_active', true)
+          : mode === 'taxonomy'
+            ? supabase
+                .from('products')
+                .select(
+                  'id, name, description, category, additional_categories, subcategory, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at',
+                  { count: 'exact' }
+                )
+                .eq('is_active', true)
+            : supabase
+                .from('products')
+                .select(
+                  'id, name, description, category, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at',
+                  { count: 'exact' }
+                )
+                .eq('is_active', true);
 
       if (search.length > 0) {
         const safeTerm = search.replace(/[,%()]/g, ' ').trim();
@@ -142,7 +151,7 @@ router.get('/', async (req, res) => {
         }
       }
 
-      if (supportsExtendedTaxonomy) {
+      if (mode !== 'legacy') {
         const taxonomyOr = buildProductFilterOr(category, subcategory);
         if (taxonomyOr) {
           query = query.or(taxonomyOr);
@@ -153,7 +162,9 @@ router.get('/', async (req, res) => {
 
       if (promoOnly) {
         query = query.or(
-          'promo_price_unit.not.is.null,promo_price_kg.not.is.null'
+          mode === 'full'
+            ? 'promo_price_unit.not.is.null,promo_price_kg.not.is.null,promo_price_meter.not.is.null'
+            : 'promo_price_unit.not.is.null,promo_price_kg.not.is.null'
         );
       }
 
@@ -176,19 +187,32 @@ router.get('/', async (req, res) => {
     };
 
     let usedFallback = false;
-    let { data: products, error, count } = await buildQuery(true);
+    let { data: products, error, count } = await buildQuery('full');
 
     if (
       error &&
-      (error.message?.includes('additional_categories') ||
+      (error.message?.includes('price_meter') ||
+        error.message?.includes('additional_categories') ||
         error.message?.includes('subcategory') ||
         error.code === '42703')
     ) {
-      usedFallback = true;
-      const legacy = await buildQuery(false);
-      products = legacy.data;
-      error = legacy.error;
-      count = legacy.count;
+      const taxAttempt = await buildQuery('taxonomy');
+      products = taxAttempt.data;
+      error = taxAttempt.error;
+      count = taxAttempt.count;
+
+      if (
+        error &&
+        (error.message?.includes('additional_categories') ||
+          error.message?.includes('subcategory') ||
+          error.code === '42703')
+      ) {
+        usedFallback = true;
+        const legacy = await buildQuery('legacy');
+        products = legacy.data;
+        error = legacy.error;
+        count = legacy.count;
+      }
     }
 
     if (error) {
@@ -206,6 +230,8 @@ router.get('/', async (req, res) => {
         price_unit: number | null;
         promo_price_kg: number | null;
         price_kg: number | null;
+        promo_price_meter?: number | null;
+        price_meter?: number | null;
       }
     >;
 
@@ -256,14 +282,22 @@ router.get('/', async (req, res) => {
         p.promo_price_kg !== null &&
         p.price_kg !== null &&
         Number(p.promo_price_kg) < Number(p.price_kg);
+      const hasPromoMeter =
+        p.promo_price_meter !== null &&
+        p.promo_price_meter !== undefined &&
+        p.price_meter !== null &&
+        p.price_meter !== undefined &&
+        Number(p.promo_price_meter) < Number(p.price_meter);
 
       return {
         ...p,
+        price_meter: p.price_meter ?? null,
+        promo_price_meter: p.promo_price_meter ?? null,
         additional_categories: Array.isArray(p.additional_categories)
           ? p.additional_categories
           : [],
         subcategory: p.subcategory ?? null,
-        is_promo: hasPromoUnit || hasPromoKg,
+        is_promo: hasPromoUnit || hasPromoKg || hasPromoMeter,
         avg_rating: stats ? Number((stats.sum / stats.count).toFixed(1)) : null,
         review_count: stats ? stats.count : 0,
       };
@@ -299,7 +333,7 @@ router.get('/:id', async (req, res) => {
     let { data: product, error } = await supabase
       .from('products')
       .select(
-        'id, name, description, category, additional_categories, subcategory, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at'
+        'id, name, description, category, additional_categories, subcategory, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, price_meter, promo_price_meter, sort_price, manage_stock, stock_quantity, is_active, created_at'
       )
       .eq('id', productId)
       .eq('is_active', true)
@@ -307,20 +341,39 @@ router.get('/:id', async (req, res) => {
 
     if (
       error &&
-      (error.message?.includes('additional_categories') ||
+      (error.message?.includes('price_meter') ||
+        error.message?.includes('additional_categories') ||
         error.message?.includes('subcategory') ||
         error.code === '42703')
     ) {
-      const legacy = await supabase
+      const taxAttempt = await supabase
         .from('products')
         .select(
-          'id, name, description, category, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at'
+          'id, name, description, category, additional_categories, subcategory, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at'
         )
         .eq('id', productId)
         .eq('is_active', true)
         .single();
-      product = legacy.data as typeof product;
-      error = legacy.error;
+      product = taxAttempt.data as typeof product;
+      error = taxAttempt.error;
+
+      if (
+        error &&
+        (error.message?.includes('additional_categories') ||
+          error.message?.includes('subcategory') ||
+          error.code === '42703')
+      ) {
+        const legacy = await supabase
+          .from('products')
+          .select(
+            'id, name, description, category, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at'
+          )
+          .eq('id', productId)
+          .eq('is_active', true)
+          .single();
+        product = legacy.data as typeof product;
+        error = legacy.error;
+      }
     }
 
     if (error || !product) {
@@ -379,6 +432,12 @@ router.get('/:id', async (req, res) => {
       product.promo_price_kg !== null &&
       product.price_kg !== null &&
       Number(product.promo_price_kg) < Number(product.price_kg);
+    const hasPromoMeter =
+      product.promo_price_meter !== null &&
+      product.promo_price_meter !== undefined &&
+      product.price_meter !== null &&
+      product.price_meter !== undefined &&
+      Number(product.promo_price_meter) < Number(product.price_meter);
 
     const reviewCount = formattedReviews.length;
     const avgRating =
@@ -394,11 +453,13 @@ router.get('/:id', async (req, res) => {
     res.json({
       product: {
         ...product,
+        price_meter: product.price_meter ?? null,
+        promo_price_meter: product.promo_price_meter ?? null,
         additional_categories: Array.isArray(product.additional_categories)
           ? product.additional_categories
           : [],
         subcategory: product.subcategory ?? null,
-        is_promo: hasPromoUnit || hasPromoKg,
+        is_promo: hasPromoUnit || hasPromoKg || hasPromoMeter,
         avg_rating: avgRating,
         review_count: reviewCount,
       },

@@ -20,6 +20,7 @@ import {
   formatPhoneInput,
   formatProductCategories,
   formatStockDisplay,
+  formatUnitShort,
 } from '../lib/format';
 import type { AdminUserRow, OrderRecord, OrderStatus, Product, SaleType } from '../types';
 
@@ -51,6 +52,8 @@ export function AdminView() {
   const [pPromoUnit, setPPromoUnit] = useState('');
   const [pPriceKg, setPPriceKg] = useState('');
   const [pPromoKg, setPPromoKg] = useState('');
+  const [pPriceMeter, setPPriceMeter] = useState('');
+  const [pPromoMeter, setPPromoMeter] = useState('');
   const [pManageStock, setPManageStock] = useState(true);
   const [pStockQty, setPStockQty] = useState('0');
   const [pIsActive, setPIsActive] = useState(true);
@@ -199,6 +202,8 @@ export function AdminView() {
     setPPromoUnit('');
     setPPriceKg('');
     setPPromoKg('');
+    setPPriceMeter('');
+    setPPromoMeter('');
     setPManageStock(true);
     setPStockQty('0');
     setPIsActive(true);
@@ -245,6 +250,16 @@ export function AdminView() {
     setPPriceKg(prod.price_kg !== null ? String(prod.price_kg) : '');
     setPPromoKg(
       prod.promo_price_kg !== null ? String(prod.promo_price_kg) : ''
+    );
+    setPPriceMeter(
+      prod.price_meter !== null && prod.price_meter !== undefined
+        ? String(prod.price_meter)
+        : ''
+    );
+    setPPromoMeter(
+      prod.promo_price_meter !== null && prod.promo_price_meter !== undefined
+        ? String(prod.promo_price_meter)
+        : ''
     );
     setPManageStock(prod.manage_stock);
     setPStockQty(prod.stock_quantity !== null ? String(prod.stock_quantity) : '0');
@@ -394,10 +409,16 @@ export function AdminView() {
       imageUrl: pImageUrl || null,
       imagePath: pImagePath || null,
       saleType: pSaleType,
-      priceUnit: pSaleType === 'kg' ? null : toNum(pPriceUnit),
-      promoPriceUnit: pSaleType === 'kg' ? null : toNum(pPromoUnit),
-      priceKg: pSaleType === 'unit' ? null : toNum(pPriceKg),
-      promoPriceKg: pSaleType === 'unit' ? null : toNum(pPromoKg),
+      priceUnit:
+        pSaleType === 'unit' || pSaleType === 'both' ? toNum(pPriceUnit) : null,
+      promoPriceUnit:
+        pSaleType === 'unit' || pSaleType === 'both' ? toNum(pPromoUnit) : null,
+      priceKg:
+        pSaleType === 'kg' || pSaleType === 'both' ? toNum(pPriceKg) : null,
+      promoPriceKg:
+        pSaleType === 'kg' || pSaleType === 'both' ? toNum(pPromoKg) : null,
+      priceMeter: pSaleType === 'meter' ? toNum(pPriceMeter) : null,
+      promoPriceMeter: pSaleType === 'meter' ? toNum(pPromoMeter) : null,
       manageStock: pManageStock,
       stockQuantity: pManageStock ? toNum(pStockQty) ?? 0 : null,
       isActive: pIsActive,
@@ -746,6 +767,7 @@ export function AdminView() {
                   >
                     <option value="unit">Por unidade</option>
                     <option value="kg">Por quilo (kg)</option>
+                    <option value="meter">Por metro (m)</option>
                     <option value="both">Unidade e Quilo</option>
                   </select>
                 </div>
@@ -925,6 +947,38 @@ export function AdminView() {
                   </>
                 )}
 
+                {pSaleType === 'meter' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-800">
+                        Preço normal por metro (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        value={pPriceMeter}
+                        onChange={(e) => setPPriceMeter(e.target.value)}
+                        className="mt-1 h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 font-mono text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-800">
+                        Preço promocional por metro (R$ - opcional)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={pPromoMeter}
+                        onChange={(e) => setPPromoMeter(e.target.value)}
+                        className="mt-1 h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 font-mono text-sm"
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="flex items-center gap-4">
                   <label className="inline-flex items-center gap-2 text-sm text-neutral-800">
                     <input
@@ -1042,7 +1096,10 @@ export function AdminView() {
                       {prod.price_unit !== null &&
                         `Un: ${formatCurrency(prod.promo_price_unit ?? prod.price_unit)} `}
                       {prod.price_kg !== null &&
-                        `Kg: ${formatCurrency(prod.promo_price_kg ?? prod.price_kg)}`}
+                        `Kg: ${formatCurrency(prod.promo_price_kg ?? prod.price_kg)} `}
+                      {prod.price_meter !== null &&
+                        prod.price_meter !== undefined &&
+                        `Metro: ${formatCurrency(prod.promo_price_meter ?? prod.price_meter)}/m`}
                     </p>
                   </div>
                 </div>
@@ -1179,8 +1236,7 @@ export function AdminView() {
                           className="flex justify-between py-1"
                         >
                           <span>
-                            {item.quantity}{' '}
-                            {item.unit_mode === 'kg' ? 'kg' : 'un'} ×{' '}
+                            {item.quantity} {formatUnitShort(item.unit_mode)} ×{' '}
                             {item.product_name} (
                             {formatCurrency(item.unit_price)})
                           </span>

@@ -11,6 +11,7 @@ import {
   digitsOnly,
   loginSchema,
   registerSchema,
+  updateProfileSchema,
 } from '../utils/validation.ts';
 import { createRateLimiter } from '../middleware/rateLimit.ts';
 import {
@@ -278,19 +279,99 @@ router.get('/session', async (req, res) => {
   }
 });
 
-router.get('/me', requireAuth, (req, res) => {
-  const user = req.authUser!;
-  res.json({
-    user: {
-      id: user.id,
-      fullName: user.fullName,
-      email: user.email,
-      cpf: user.cpf,
-      phone: user.phone,
-      role: user.role,
-      mustChangePassword: user.mustChangePassword,
-    },
-  });
+router.get('/me', requireAuth, async (req, res) => {
+  try {
+    const user = req.authUser!;
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const [{ data: profileRow }, { data: addressRows }] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('created_at, is_active')
+        .eq('id', user.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('addresses')
+        .select(
+          'id, cep, street, number, complement, neighborhood, city, state, is_default, created_at'
+        )
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(5),
+    ]);
+
+    res.json({
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        cpf: user.cpf,
+        phone: user.phone,
+        role: user.role,
+        mustChangePassword: user.mustChangePassword,
+      },
+      profileDetails: {
+        createdAt: profileRow?.created_at ?? null,
+        isActive: profileRow?.is_active ?? true,
+      },
+      addresses: addressRows || [],
+    });
+  } catch {
+    res.status(500).json({ error: 'Não foi possível carregar seu perfil.' });
+  }
+});
+
+router.patch('/me', requireAuth, async (req, res) => {
+  try {
+    const parsed = updateProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Dados inválidos.',
+      });
+      return;
+    }
+
+    const user = req.authUser!;
+    const { fullName, phone } = parsed.data;
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const { data: updated, error } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        full_name: fullName,
+        phone,
+      })
+      .eq('id', user.id)
+      .select(
+        'id, full_name, email, cpf, phone, role, must_change_password, created_at, is_active'
+      )
+      .single();
+
+    if (error || !updated) {
+      res.status(400).json({ error: 'Não foi possível atualizar seu perfil.' });
+      return;
+    }
+
+    res.json({
+      message: 'Dados cadastrais atualizados com sucesso.',
+      user: {
+        id: updated.id,
+        fullName: updated.full_name,
+        email: updated.email,
+        cpf: updated.cpf,
+        phone: updated.phone,
+        role: updated.role,
+        mustChangePassword: Boolean(updated.must_change_password),
+      },
+      profileDetails: {
+        createdAt: updated.created_at ?? null,
+        isActive: Boolean(updated.is_active),
+      },
+    });
+  } catch {
+    res.status(500).json({ error: 'Erro interno ao atualizar perfil.' });
+  }
 });
 
 router.post('/change-password', requireAuth, async (req, res) => {

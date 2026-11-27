@@ -1,6 +1,6 @@
 export type UserRole = 'customer' | 'admin' | 'super_admin';
-export type SaleType = 'unit' | 'kg' | 'both';
-export type UnitMode = 'unit' | 'kg';
+export type SaleType = 'unit' | 'kg' | 'meter' | 'both';
+export type UnitMode = 'unit' | 'kg' | 'meter';
 export type OrderStatus =
   | 'pending_payment'
   | 'awaiting_confirmation'
@@ -20,6 +20,19 @@ export interface UserProfile {
   mustChangePassword: boolean;
 }
 
+export interface CustomerAddress {
+  id: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string | null;
+  neighborhood: string;
+  city: string;
+  state: string;
+  is_default: boolean;
+  created_at: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -34,6 +47,8 @@ export interface Product {
   promo_price_unit: number | null;
   price_kg: number | null;
   promo_price_kg: number | null;
+  price_meter?: number | null;
+  promo_price_meter?: number | null;
   sort_price: number;
   manage_stock: boolean;
   stock_quantity: number | null;

@@ -7,6 +7,7 @@ import {
   buildWhatsappLink,
   formatCepInput,
   formatCurrency,
+  formatUnitShort,
   isIratiPr,
 } from '../lib/format';
 import type { DeliveryMode, StoreConfig } from '../types';
@@ -82,7 +83,7 @@ export function CheckoutView({
     const itemsSummary = cart.items
       .map(
         (i) =>
-          `- ${i.quantity} ${i.unitMode === 'kg' ? 'kg' : 'un'} x ${i.productName}`
+          `- ${i.quantity} ${formatUnitShort(i.unitMode)} x ${i.productName}`
       )
       .join('\n');
     const text = `Olá! Gostaria de combinar o frete para entrega fora de Irati.\nCidade/UF: ${city}/${stateUf.toUpperCase()} (CEP ${cep})\nItens:\n${itemsSummary}`;
@@ -698,7 +699,7 @@ export function CheckoutView({
                       {item.productName}
                     </p>
                     <p className="font-mono tabular-nums text-xs text-neutral-500">
-                      {item.quantity} {item.unitMode === 'kg' ? 'kg' : 'un'} ×{' '}
+                      {item.quantity} {formatUnitShort(item.unitMode)} ×{' '}
                       {formatCurrency(item.unitPrice)}
                     </p>
                   </div>

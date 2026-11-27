@@ -44,14 +44,27 @@ async function buildCartResponse(userId: string) {
   const supabase = getSupabaseAdmin();
   const cartId = await getOrCreateUserCartId(userId);
 
-  const { data: items, error } = await supabase
+  let { data: items, error } = await supabase
     .from('cart_items')
     .select(
-      'id, product_id, unit_mode, quantity, products(id, name, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, manage_stock, stock_quantity, is_active)'
+      'id, product_id, unit_mode, quantity, products(id, name, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, price_meter, promo_price_meter, manage_stock, stock_quantity, is_active)'
     )
     .eq('cart_id', cartId)
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
+
+  if (error && (error.message?.includes('price_meter') || error.code === '42703')) {
+    const legacy = await supabase
+      .from('cart_items')
+      .select(
+        'id, product_id, unit_mode, quantity, products(id, name, image_url, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, manage_stock, stock_quantity, is_active)'
+      )
+      .eq('cart_id', cartId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    items = legacy.data as typeof items;
+    error = legacy.error;
+  }
 
   if (error) {
     throw new Error('CART_FETCH_FAILED');
@@ -60,9 +73,15 @@ async function buildCartResponse(userId: string) {
   let subtotal = 0;
   const formattedItems = (items || [])
     .map((item) => {
-      const product = Array.isArray(item.products)
+      const productRaw = Array.isArray(item.products)
         ? item.products[0]
         : item.products;
+      const product = productRaw as
+        | (typeof productRaw & {
+            price_meter?: number | null;
+            promo_price_meter?: number | null;
+          })
+        | null;
       if (!product || !product.is_active) return null;
 
       let unitPrice = 0;
@@ -74,7 +93,7 @@ async function buildCartResponse(userId: string) {
             ? Number(product.promo_price_unit)
             : null;
         unitPrice = promo ?? Number(product.price_unit || 0);
-      } else {
+      } else if (item.unit_mode === 'kg') {
         const promo =
           product.promo_price_kg !== null &&
           product.price_kg !== null &&
@@ -82,6 +101,16 @@ async function buildCartResponse(userId: string) {
             ? Number(product.promo_price_kg)
             : null;
         unitPrice = promo ?? Number(product.price_kg || 0);
+      } else if (item.unit_mode === 'meter') {
+        const promo =
+          product.promo_price_meter !== null &&
+          product.promo_price_meter !== undefined &&
+          product.price_meter !== null &&
+          product.price_meter !== undefined &&
+          Number(product.promo_price_meter) < Number(product.price_meter)
+            ? Number(product.promo_price_meter)
+            : null;
+        unitPrice = promo ?? Number(product.price_meter || 0);
       }
 
       if (unitPrice <= 0) return null;
@@ -95,7 +124,7 @@ async function buildCartResponse(userId: string) {
         productId: item.product_id,
         productName: product.name,
         imageUrl: product.image_url,
-        unitMode: item.unit_mode as 'unit' | 'kg',
+        unitMode: item.unit_mode as 'unit' | 'kg' | 'meter',
         quantity: qty,
         unitPrice,
         lineTotal,
@@ -136,13 +165,25 @@ router.post('/items', async (req, res) => {
     const { productId, unitMode, quantity } = parsed.data;
     const supabase = getSupabaseAdmin();
 
-    const { data: product, error: prodError } = await supabase
+    let { data: product, error: prodError } = await supabase
       .from('products')
       .select(
-        'id, name, sale_type, price_unit, price_kg, manage_stock, stock_quantity, is_active'
+        'id, name, sale_type, price_unit, price_kg, price_meter, manage_stock, stock_quantity, is_active'
       )
       .eq('id', productId)
       .single();
+
+    if (prodError && (prodError.message?.includes('price_meter') || prodError.code === '42703')) {
+      const legacy = await supabase
+        .from('products')
+        .select(
+          'id, name, sale_type, price_unit, price_kg, manage_stock, stock_quantity, is_active'
+        )
+        .eq('id', productId)
+        .single();
+      product = legacy.data as typeof product;
+      prodError = legacy.error;
+    }
 
     if (prodError || !product || !product.is_active) {
       res.status(404).json({ error: 'Produto indisponível ou não encontrado.' });
@@ -160,9 +201,16 @@ router.post('/items', async (req, res) => {
         });
         return;
       }
-    } else if (product.sale_type !== 'kg' && product.sale_type !== 'both') {
-      res.status(400).json({ error: 'Este produto não é vendido por quilo.' });
-      return;
+    } else if (unitMode === 'kg') {
+      if (product.sale_type !== 'kg' && product.sale_type !== 'both') {
+        res.status(400).json({ error: 'Este produto não é vendido por quilo.' });
+        return;
+      }
+    } else if (unitMode === 'meter') {
+      if (product.sale_type !== 'meter') {
+        res.status(400).json({ error: 'Este produto não é vendido por metro.' });
+        return;
+      }
     }
 
     const cartId = await getOrCreateUserCartId(userId);

@@ -1,6 +1,5 @@
 import {
   LayoutGrid,
-  LogOut,
   Menu,
   PackageCheck,
   Search,
@@ -16,6 +15,7 @@ export type AppView =
   | 'catalog'
   | 'auth'
   | 'orders'
+  | 'profile'
   | 'checkout'
   | 'admin'
   | 'change-password';
@@ -39,7 +39,7 @@ export function Header({
   onNavigate,
   onOpenCart,
 }: HeaderProps) {
-  const { user, cart, logout } = useAuth();
+  const { user, cart } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
@@ -188,33 +188,30 @@ export function Header({
             )}
           </nav>
 
-          {/* Conta do cliente */}
+          {/* Conta do cliente (abre Meu Perfil) */}
           {user ? (
-            <div className="hidden md:flex items-center gap-1.5 border-l border-neutral-200 pl-2">
+            <div className="hidden md:flex items-center border-l border-neutral-200 pl-2">
               <button
                 type="button"
-                onClick={() => handleNav(isAdmin ? 'admin' : 'orders')}
-                className="group inline-flex min-h-[42px] cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50"
-                title={user.fullName}
+                onClick={() => handleNav('profile')}
+                className={`group inline-flex min-h-[42px] cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 ${
+                  currentView === 'profile' ? 'bg-emerald-50 text-emerald-950' : ''
+                }`}
+                title={`Meu Perfil — ${user.fullName}`}
+                aria-label="Abrir Meu Perfil"
               >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-900/10 text-emerald-900 transition-colors group-hover:bg-emerald-900 group-hover:text-white">
+                <span
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                    currentView === 'profile'
+                      ? 'bg-emerald-900 text-white'
+                      : 'bg-emerald-900/10 text-emerald-900 group-hover:bg-emerald-900 group-hover:text-white'
+                  }`}
+                >
                   <User className="h-4 w-4" />
                 </span>
-                <span className="max-w-[110px] truncate text-sm font-semibold text-neutral-800">
+                <span className="max-w-[120px] truncate text-sm font-semibold text-neutral-800">
                   {user.fullName.split(' ')[0]}
                 </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  handleNav('catalog');
-                }}
-                aria-label="Sair da conta"
-                className="inline-flex min-h-[42px] cursor-pointer items-center gap-1 rounded-lg px-2.5 py-2 text-sm font-medium text-neutral-600 transition-all duration-200 hover:bg-red-50 hover:text-red-700 whitespace-nowrap"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden lg:inline">Sair</span>
               </button>
             </div>
           ) : (
@@ -331,23 +328,28 @@ export function Header({
                 <span>Painel Admin</span>
               </button>
             )}
+            {user && (
+              <button
+                type="button"
+                onClick={() => handleNav('profile')}
+                className="flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-sm font-semibold text-neutral-800 hover:bg-emerald-50"
+              >
+                <User className="h-4 w-4 text-emerald-800" />
+                <span>Meu Perfil</span>
+              </button>
+            )}
             <div className="mt-2 border-t border-neutral-200 pt-3 md:hidden">
               {user ? (
-                <div className="flex items-center justify-between px-3">
-                  <span className="text-sm font-semibold text-neutral-800">
-                    {user.fullName}
+                <button
+                  type="button"
+                  onClick={() => handleNav('profile')}
+                  className="flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-lg bg-emerald-50/70 px-3 text-left text-sm font-semibold text-emerald-950 hover:bg-emerald-100/70"
+                >
+                  <span className="truncate">{user.fullName}</span>
+                  <span className="ml-2 shrink-0 text-xs font-bold text-emerald-800">
+                    Ver perfil
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logout();
-                      handleNav('catalog');
-                    }}
-                    className="min-h-[40px] cursor-pointer rounded-lg px-3 text-sm font-semibold text-red-700 hover:bg-red-50"
-                  >
-                    Sair
-                  </button>
-                </div>
+                </button>
               ) : (
                 <div className="flex gap-2">
                   <button

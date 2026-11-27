@@ -12,6 +12,7 @@ import { AuthView, ChangePasswordView } from './views/AuthView';
 import { CatalogView } from './views/CatalogView';
 import { CheckoutView } from './views/CheckoutView';
 import { OrdersView } from './views/OrdersView';
+import { ProfileView } from './views/ProfileView';
 
 const DEFAULT_CONFIG: StoreConfig = {
   storeName:
@@ -275,6 +276,15 @@ function StorefrontApp() {
         <OrdersView
           config={config}
           onGoToCatalog={() => navigate('catalog')}
+        />
+      )}
+
+      {view === 'profile' && user && (
+        <ProfileView
+          onGoToCatalog={() => navigate('catalog')}
+          onGoToOrders={() => navigate('orders')}
+          onGoToAdmin={() => navigate('admin')}
+          onLoggedOut={() => navigate('catalog')}
         />
       )}
 

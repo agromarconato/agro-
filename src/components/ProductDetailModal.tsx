@@ -7,6 +7,8 @@ import {
   formatDateTime,
   formatProductCategories,
   formatStockDisplay,
+  formatUnitFull,
+  formatUnitShort,
 } from '../lib/format';
 import type { Product, ProductReview, UnitMode } from '../types';
 import { ProductImage } from './ProductImage';
@@ -34,6 +36,7 @@ export function ProductDetailModal({
   const [detail, setDetail] = useState<ProductDetailResponse | null>(null);
   const [unitMode, setUnitMode] = useState<UnitMode>('unit');
   const [quantity, setQuantity] = useState<number>(1);
+  const [quantityInput, setQuantityInput] = useState<string>('1');
 
   // Avaliação
   const [rating, setRating] = useState(5);
@@ -51,9 +54,14 @@ export function ProductDetailModal({
       });
       setDetail(data);
       const defaultMode: UnitMode =
-        data.product.sale_type === 'kg' ? 'kg' : 'unit';
+        data.product.sale_type === 'kg'
+          ? 'kg'
+          : data.product.sale_type === 'meter'
+            ? 'meter'
+            : 'unit';
       setUnitMode(defaultMode);
       setQuantity(1);
+      setQuantityInput('1');
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Erro ao carregar detalhes do produto.'
@@ -74,29 +82,44 @@ export function ProductDetailModal({
   if (!productId) return null;
 
   const product = detail?.product;
-  const activePrice =
-    product && unitMode === 'unit'
+  const activePrice = !product
+    ? 0
+    : unitMode === 'unit'
       ? product.promo_price_unit &&
         product.price_unit &&
         Number(product.promo_price_unit) < Number(product.price_unit)
         ? Number(product.promo_price_unit)
         : Number(product.price_unit || 0)
-      : product
+      : unitMode === 'kg'
         ? product.promo_price_kg &&
           product.price_kg &&
           Number(product.promo_price_kg) < Number(product.price_kg)
           ? Number(product.promo_price_kg)
           : Number(product.price_kg || 0)
-        : 0;
+        : product.promo_price_meter &&
+            product.price_meter &&
+            Number(product.promo_price_meter) < Number(product.price_meter)
+          ? Number(product.promo_price_meter)
+          : Number(product.price_meter || 0);
 
-  const originalPrice =
-    product && unitMode === 'unit'
+  const originalPrice = !product
+    ? 0
+    : unitMode === 'unit'
       ? Number(product.price_unit || 0)
-      : product
+      : unitMode === 'kg'
         ? Number(product.price_kg || 0)
-        : 0;
+        : Number(product.price_meter || 0);
 
   const hasPromo = activePrice > 0 && originalPrice > activePrice;
+  const parsedQty = Number(quantityInput.replace(',', '.'));
+  const isQtyValid =
+    Number.isFinite(parsedQty) &&
+    parsedQty > 0 &&
+    parsedQty <= 10000 &&
+    (unitMode !== 'unit' || Number.isInteger(parsedQty));
+  const calculatedSubtotal = isQtyValid
+    ? Number((activePrice * parsedQty).toFixed(2))
+    : 0;
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +228,7 @@ export function ProductDetailModal({
                         {formatCurrency(activePrice)}
                       </span>
                       <span className="text-sm text-neutral-600">
-                        / {unitMode === 'kg' ? 'quilo (kg)' : 'unidade'}
+                        / {formatUnitFull(unitMode)}
                       </span>
                     </div>
                   </div>
@@ -221,6 +244,7 @@ export function ProductDetailModal({
                           onClick={() => {
                             setUnitMode('unit');
                             setQuantity(1);
+                            setQuantityInput('1');
                           }}
                           className={`min-h-[36px] cursor-pointer rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
                             unitMode === 'unit'
@@ -235,6 +259,7 @@ export function ProductDetailModal({
                           onClick={() => {
                             setUnitMode('kg');
                             setQuantity(1);
+                            setQuantityInput('1');
                           }}
                           className={`min-h-[36px] cursor-pointer rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
                             unitMode === 'kg'
@@ -253,17 +278,19 @@ export function ProductDetailModal({
                       htmlFor="detail-qty"
                       className="block text-xs font-medium text-neutral-700"
                     >
-                      Quantidade ({unitMode === 'kg' ? 'kg' : 'un'})
+                      Quantidade ({formatUnitShort(unitMode)})
                     </label>
-                    <div className="mt-2 flex items-center gap-3">
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
                       <input
                         id="detail-qty"
                         type="number"
-                        min={unitMode === 'kg' ? 0.5 : 1}
-                        step={unitMode === 'kg' ? 0.5 : 1}
-                        value={quantity}
+                        min={unitMode === 'unit' ? 1 : 0.1}
+                        step={unitMode === 'unit' ? 1 : 0.5}
+                        value={quantityInput}
                         onChange={(e) => {
-                          const val = Number(e.target.value);
+                          const raw = e.target.value;
+                          setQuantityInput(raw);
+                          const val = Number(raw.replace(',', '.'));
                           if (Number.isFinite(val) && val > 0) {
                             setQuantity(
                               unitMode === 'unit' ? Math.max(1, Math.floor(val)) : val
@@ -281,16 +308,38 @@ export function ProductDetailModal({
                         </span>
                       )}
                     </div>
+
+                    {!isQtyValid ? (
+                      <p className="mt-2 text-xs font-medium text-red-700">
+                        {unitMode === 'unit'
+                          ? 'Informe uma quantidade inteira maior que zero.'
+                          : 'Informe uma quantidade válida maior que zero.'}
+                      </p>
+                    ) : (
+                      <div className="mt-3 flex items-center justify-between rounded-lg border border-emerald-900/15 bg-emerald-50/50 px-3.5 py-2 text-xs">
+                        <span className="text-neutral-700">
+                          Total ({parsedQty} {formatUnitShort(unitMode)} ×{' '}
+                          {formatCurrency(activePrice)})
+                        </span>
+                        <strong className="font-mono tabular-nums text-sm font-extrabold text-emerald-950">
+                          {formatCurrency(calculatedSubtotal)}
+                        </strong>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-6">
                     <button
                       type="button"
                       disabled={
-                        product.manage_stock &&
-                        Number(product.stock_quantity ?? 0) <= 0
+                        !isQtyValid ||
+                        (product.manage_stock &&
+                          Number(product.stock_quantity ?? 0) <= 0)
                       }
-                      onClick={() => onAddToCart(product, unitMode, quantity)}
+                      onClick={() => {
+                        if (!isQtyValid) return;
+                        onAddToCart(product, unitMode, quantity);
+                      }}
                       className="min-h-[46px] w-full cursor-pointer rounded-lg bg-emerald-900 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-950 disabled:cursor-not-allowed disabled:bg-neutral-300"
                     >
                       {product.manage_stock &&

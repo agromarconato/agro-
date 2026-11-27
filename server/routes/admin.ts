@@ -59,20 +59,28 @@ router.get('/products', async (req, res) => {
     const search = String(req.query.search || '').trim();
     const supabase = getSupabaseAdmin();
 
-    const runList = (extended: boolean) => {
-      let query = extended
-        ? supabase
-            .from('products')
-            .select(
-              'id, name, description, category, additional_categories, subcategory, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
-            )
-            .order('created_at', { ascending: false })
-        : supabase
-            .from('products')
-            .select(
-              'id, name, description, category, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
-            )
-            .order('created_at', { ascending: false });
+    const runList = (mode: 'full' | 'taxonomy' | 'legacy') => {
+      let query =
+        mode === 'full'
+          ? supabase
+              .from('products')
+              .select(
+                'id, name, description, category, additional_categories, subcategory, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, price_meter, promo_price_meter, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
+              )
+              .order('created_at', { ascending: false })
+          : mode === 'taxonomy'
+            ? supabase
+                .from('products')
+                .select(
+                  'id, name, description, category, additional_categories, subcategory, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
+                )
+                .order('created_at', { ascending: false })
+            : supabase
+                .from('products')
+                .select(
+                  'id, name, description, category, image_url, image_path, sale_type, price_unit, promo_price_unit, price_kg, promo_price_kg, sort_price, manage_stock, stock_quantity, is_active, created_at, updated_at'
+                )
+                .order('created_at', { ascending: false });
 
       if (search.length > 0) {
         const safe = search.replace(/[,%()]/g, ' ').trim();
@@ -83,16 +91,27 @@ router.get('/products', async (req, res) => {
       return query;
     };
 
-    let { data, error } = await runList(true);
+    let { data, error } = await runList('full');
     if (
       error &&
-      (error.message?.includes('additional_categories') ||
+      (error.message?.includes('price_meter') ||
+        error.message?.includes('additional_categories') ||
         error.message?.includes('subcategory') ||
         error.code === '42703')
     ) {
-      const legacy = await runList(false);
-      data = legacy.data;
-      error = legacy.error;
+      const taxAttempt = await runList('taxonomy');
+      data = taxAttempt.data;
+      error = taxAttempt.error;
+      if (
+        error &&
+        (error.message?.includes('additional_categories') ||
+          error.message?.includes('subcategory') ||
+          error.code === '42703')
+      ) {
+        const legacy = await runList('legacy');
+        data = legacy.data;
+        error = legacy.error;
+      }
     }
 
     if (error) {
@@ -230,19 +249,34 @@ router.post('/products', async (req, res) => {
       image_url: p.imageUrl || null,
       image_path: p.imagePath || null,
       sale_type: p.saleType,
-      price_unit: p.saleType === 'kg' ? null : p.priceUnit ?? null,
-      promo_price_unit: p.saleType === 'kg' ? null : p.promoPriceUnit ?? null,
-      price_kg: p.saleType === 'unit' ? null : p.priceKg ?? null,
-      promo_price_kg: p.saleType === 'unit' ? null : p.promoPriceKg ?? null,
+      price_unit:
+        p.saleType === 'unit' || p.saleType === 'both' ? p.priceUnit ?? null : null,
+      promo_price_unit:
+        p.saleType === 'unit' || p.saleType === 'both'
+          ? p.promoPriceUnit ?? null
+          : null,
+      price_kg:
+        p.saleType === 'kg' || p.saleType === 'both' ? p.priceKg ?? null : null,
+      promo_price_kg:
+        p.saleType === 'kg' || p.saleType === 'both'
+          ? p.promoPriceKg ?? null
+          : null,
       manage_stock: p.manageStock,
       stock_quantity: p.manageStock ? p.stockQuantity ?? 0 : null,
       is_active: p.isActive,
+    };
+
+    const meterPayload = {
+      price_meter: p.saleType === 'meter' ? p.priceMeter ?? null : null,
+      promo_price_meter:
+        p.saleType === 'meter' ? p.promoPriceMeter ?? null : null,
     };
 
     let { data: product, error } = await supabase
       .from('products')
       .insert({
         ...basePayload,
+        ...meterPayload,
         additional_categories: cleanAdditional,
         subcategory: cleanSub,
       })
@@ -251,10 +285,18 @@ router.post('/products', async (req, res) => {
 
     if (
       error &&
-      (error.message?.includes('additional_categories') ||
+      (error.message?.includes('price_meter') ||
+        error.message?.includes('additional_categories') ||
         error.message?.includes('subcategory') ||
         error.code === '42703')
     ) {
+      if (p.saleType === 'meter') {
+        res.status(400).json({
+          error:
+            'Execute o script SQL 008_meter_sale_type.sql no Supabase para habilitar produtos vendidos por metro.',
+        });
+        return;
+      }
       const legacy = await supabase
         .from('products')
         .insert(basePayload)
@@ -265,6 +307,16 @@ router.post('/products', async (req, res) => {
     }
 
     if (error) {
+      if (
+        p.saleType === 'meter' &&
+        error.message?.toLowerCase().includes('enum')
+      ) {
+        res.status(400).json({
+          error:
+            'Execute o script SQL 008_meter_sale_type.sql no Supabase para habilitar produtos vendidos por metro.',
+        });
+        return;
+      }
       res.status(400).json({ error: 'Não foi possível cadastrar o produto.' });
       return;
     }
@@ -305,19 +357,34 @@ router.patch('/products/:id', async (req, res) => {
       image_url: p.imageUrl || null,
       image_path: p.imagePath || null,
       sale_type: p.saleType,
-      price_unit: p.saleType === 'kg' ? null : p.priceUnit ?? null,
-      promo_price_unit: p.saleType === 'kg' ? null : p.promoPriceUnit ?? null,
-      price_kg: p.saleType === 'unit' ? null : p.priceKg ?? null,
-      promo_price_kg: p.saleType === 'unit' ? null : p.promoPriceKg ?? null,
+      price_unit:
+        p.saleType === 'unit' || p.saleType === 'both' ? p.priceUnit ?? null : null,
+      promo_price_unit:
+        p.saleType === 'unit' || p.saleType === 'both'
+          ? p.promoPriceUnit ?? null
+          : null,
+      price_kg:
+        p.saleType === 'kg' || p.saleType === 'both' ? p.priceKg ?? null : null,
+      promo_price_kg:
+        p.saleType === 'kg' || p.saleType === 'both'
+          ? p.promoPriceKg ?? null
+          : null,
       manage_stock: p.manageStock,
       stock_quantity: p.manageStock ? p.stockQuantity ?? 0 : null,
       is_active: p.isActive,
+    };
+
+    const meterPayload = {
+      price_meter: p.saleType === 'meter' ? p.priceMeter ?? null : null,
+      promo_price_meter:
+        p.saleType === 'meter' ? p.promoPriceMeter ?? null : null,
     };
 
     let { data: product, error } = await supabase
       .from('products')
       .update({
         ...basePayload,
+        ...meterPayload,
         additional_categories: cleanAdditional,
         subcategory: cleanSub,
       })
@@ -327,10 +394,18 @@ router.patch('/products/:id', async (req, res) => {
 
     if (
       error &&
-      (error.message?.includes('additional_categories') ||
+      (error.message?.includes('price_meter') ||
+        error.message?.includes('additional_categories') ||
         error.message?.includes('subcategory') ||
         error.code === '42703')
     ) {
+      if (p.saleType === 'meter') {
+        res.status(400).json({
+          error:
+            'Execute o script SQL 008_meter_sale_type.sql no Supabase para habilitar produtos vendidos por metro.',
+        });
+        return;
+      }
       const legacy = await supabase
         .from('products')
         .update(basePayload)
@@ -342,6 +417,16 @@ router.patch('/products/:id', async (req, res) => {
     }
 
     if (error || !product) {
+      if (
+        p.saleType === 'meter' &&
+        error?.message?.toLowerCase().includes('enum')
+      ) {
+        res.status(400).json({
+          error:
+            'Execute o script SQL 008_meter_sale_type.sql no Supabase para habilitar produtos vendidos por metro.',
+        });
+        return;
+      }
       res.status(404).json({ error: 'Produto não encontrado ou inválido.' });
       return;
     }

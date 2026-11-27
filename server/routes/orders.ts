@@ -372,6 +372,20 @@ router.post('/', orderCreateLimiter, async (req, res) => {
         });
         return;
       }
+      if (msg.includes('INVALID_SALE_MODE:')) {
+        const prodName = msg.split('INVALID_SALE_MODE:')[1] || 'produto';
+        res.status(409).json({
+          error: `A unidade selecionada para "${prodName}" não está mais disponível.`,
+        });
+        return;
+      }
+      if (msg.includes('UNIT_QUANTITY_MUST_BE_INTEGER:')) {
+        const prodName = msg.split('UNIT_QUANTITY_MUST_BE_INTEGER:')[1] || 'produto';
+        res.status(400).json({
+          error: `A quantidade de "${prodName}" por unidade deve ser um número inteiro.`,
+        });
+        return;
+      }
       res.status(400).json({
         error: 'Não foi possível criar o pedido. Verifique os itens e o endereço.',
       });

@@ -97,14 +97,40 @@ export const changePasswordSchema = z.object({
     ),
 });
 
-export const cartItemAddSchema = z.object({
-  productId: z.string().uuid('Produto inválido.'),
-  unitMode: z.enum(['unit', 'kg']),
-  quantity: z.number().positive('Quantidade deve ser maior que zero.').max(10000),
+export const updateProfileSchema = z.object({
+  fullName: z.string().trim().min(3, 'Informe seu nome completo.').max(120),
+  phone: z
+    .string()
+    .transform((v) => digitsOnly(v))
+    .refine((v) => v.length >= 10 && v.length <= 13, 'Telefone inválido.'),
 });
 
+export const cartItemAddSchema = z
+  .object({
+    productId: z.string().uuid('Produto inválido.'),
+    unitMode: z.enum(['unit', 'kg', 'meter']),
+    quantity: z
+      .number({ message: 'Informe uma quantidade válida.' })
+      .finite('Quantidade inválida.')
+      .positive('Quantidade deve ser maior que zero.')
+      .max(10000, 'Quantidade excede o limite permitido.'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.unitMode === 'unit' && !Number.isInteger(data.quantity)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Quantidade por unidade deve ser um número inteiro.',
+        path: ['quantity'],
+      });
+    }
+  });
+
 export const cartItemUpdateSchema = z.object({
-  quantity: z.number().positive('Quantidade deve ser maior que zero.').max(10000),
+  quantity: z
+    .number({ message: 'Informe uma quantidade válida.' })
+    .finite('Quantidade inválida.')
+    .positive('Quantidade deve ser maior que zero.')
+    .max(10000, 'Quantidade excede o limite permitido.'),
 });
 
 export const shippingAddressSchema = z.object({
@@ -218,11 +244,13 @@ export const productUpsertSchema = z
       .nullable()
       .or(z.literal('')),
     imagePath: z.string().trim().max(300).optional().nullable(),
-    saleType: z.enum(['unit', 'kg', 'both']),
+    saleType: z.enum(['unit', 'kg', 'meter', 'both']),
     priceUnit: z.number().positive().max(1000000).optional().nullable(),
     promoPriceUnit: z.number().positive().max(1000000).optional().nullable(),
     priceKg: z.number().positive().max(1000000).optional().nullable(),
     promoPriceKg: z.number().positive().max(1000000).optional().nullable(),
+    priceMeter: z.number().positive().max(1000000).optional().nullable(),
+    promoPriceMeter: z.number().positive().max(1000000).optional().nullable(),
     manageStock: z.boolean().default(true),
     stockQuantity: z.number().min(0).max(1000000).optional().nullable(),
     isActive: z.boolean().default(true),
@@ -242,6 +270,13 @@ export const productUpsertSchema = z
         path: ['priceKg'],
       });
     }
+    if (data.saleType === 'meter' && !data.priceMeter) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Informe o preço por metro.',
+        path: ['priceMeter'],
+      });
+    }
     if (
       data.promoPriceUnit &&
       data.priceUnit &&
@@ -258,6 +293,17 @@ export const productUpsertSchema = z
         code: z.ZodIssueCode.custom,
         message: 'O preço promocional por quilo deve ser menor que o preço normal.',
         path: ['promoPriceKg'],
+      });
+    }
+    if (
+      data.promoPriceMeter &&
+      data.priceMeter &&
+      data.promoPriceMeter >= data.priceMeter
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'O preço promocional por metro deve ser menor que o preço normal.',
+        path: ['promoPriceMeter'],
       });
     }
   });
